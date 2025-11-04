@@ -22,7 +22,7 @@ using FinEtools.FEMMBaseModule: AbstractFEMM, finite_elements
 import FinEtools.FEMMBaseModule: inspectintegpoints
 using FinEtools.MatrixUtilityModule: add_gkgt_ut_only!,
     complete_lt!, locjac!, add_nnt_ut_only!, mulCAtB!, mulCAB!
-using LinearAlgebra: norm, dot
+using LinearAlgebra: norm, dot, I
 using FinEtoolsHeatDiff.MatHeatDiffModule: MatHeatDiff, tangentmoduli!, update!
 using FinEtools.FEMMBaseModule: bilform_diffusion, bilform_dot
 using FinEtools.DataCacheModule: DataCache
@@ -269,6 +269,26 @@ function capacity(self::FEMMHeatDiff,
     temp::NodalField{FT}) where {GFT, FT}
     assembler = SysmatAssemblerSparseSymm()
     return capacity(self, assembler, geom, temp)
+end
+
+
+function mass(
+    self::FEMMHeatDiff,
+    assembler::A,
+    geom::NodalField{GFT},
+    u::NodalField{UFT},
+) where {A<:AbstractSysmatAssembler,GFT<:Number,UFT<:Number}
+    cf = DataCache(I(ndofs(u)))
+    return bilform_dot(self, assembler, geom, u, cf)
+end
+
+function mass(
+    self::FEMMHeatDiff,
+    geom::NodalField{GFT},
+    u::NodalField{UFT},
+) where {GFT<:Number,UFT<:Number}
+    assembler = SysmatAssemblerSparseSymm()
+    return mass(self, assembler, geom, u)
 end
 
 end
