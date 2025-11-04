@@ -22,7 +22,7 @@ function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes_idx, boundary_fes_sd; l
 end
 
 function build_union_mesh(fens_i, fens_sd, edge_nodes_sd; lam_order = 0)
-    endpoints = unique(vcat(fens_i.xyz[:, :], fens_sd.xyz[edge_nodes_sd, :]), dims=1)
+    endpoints = sort(unique(vcat(fens_i.xyz[:, :], fens_sd.xyz[edge_nodes_sd, :]), dims=1), dims=1)
     fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
     kappa = [1.0 0; 0 1.0] 
     material = MatHeatDiff(kappa)
@@ -31,7 +31,7 @@ function build_union_mesh(fens_i, fens_sd, edge_nodes_sd; lam_order = 0)
     numberdofs!(u_u)
     femm_u = FEMMHeatDiff(IntegDomain(fes_u, GaussRule(1, 2)), material)
     if lam_order == 0
-        M_u = none
+        M_u = mass_like(femm_u, geom_u, u_u)
     else
         M_u = mass(femm_u, geom_u, u_u)
     end

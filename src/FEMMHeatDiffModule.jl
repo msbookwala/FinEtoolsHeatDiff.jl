@@ -16,7 +16,7 @@ using FinEtools.NodalFieldModule: NodalField
 using FinEtools.ElementalFieldModule: ElementalField
 using FinEtools.AssemblyModule: AbstractSysvecAssembler, AbstractSysmatAssembler,
     SysmatAssemblerSparseSymm, startassembly!, assemble!, makematrix!, makevector!,
-    SysvecAssembler
+    SysvecAssembler, SysmatAssemblerSparse
 using FinEtools.ForceIntensityModule: ForceIntensity
 using FinEtools.FEMMBaseModule: AbstractFEMM, finite_elements
 import FinEtools.FEMMBaseModule: inspectintegpoints
@@ -24,7 +24,7 @@ using FinEtools.MatrixUtilityModule: add_gkgt_ut_only!,
     complete_lt!, locjac!, add_nnt_ut_only!, mulCAtB!, mulCAB!
 using LinearAlgebra: norm, dot, I
 using FinEtoolsHeatDiff.MatHeatDiffModule: MatHeatDiff, tangentmoduli!, update!
-using FinEtools.FEMMBaseModule: bilform_diffusion, bilform_dot
+using FinEtools.FEMMBaseModule: bilform_diffusion, bilform_dot, bilform_masslike
 using FinEtools.DataCacheModule: DataCache
 
 """
@@ -307,7 +307,7 @@ function mass_like(
     geom::NodalField{GFT},
     u::NodalField{UFT},
 ) where {GFT<:Number,UFT<:Number}
-    assembler = SysmatAssemblerSparseSymm()
+    assembler = SysmatAssemblerSparse()
     return mass_like(self, assembler, geom, u)
 end
 
