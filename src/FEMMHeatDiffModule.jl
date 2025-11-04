@@ -291,4 +291,24 @@ function mass(
     return mass(self, assembler, geom, u)
 end
 
+
+function mass_like(
+    self::FEMMHeatDiff,
+    assembler::A,
+    geom::NodalField{GFT},
+    u::NodalField{UFT},
+) where {A<:AbstractSysmatAssembler,GFT<:Number,UFT<:Number}
+    cf = DataCache(I(ndofs(u)))
+    return bilform_masslike(self, assembler, geom, u, cf)
+end
+
+function mass_like(
+    self::FEMMHeatDiff,
+    geom::NodalField{GFT},
+    u::NodalField{UFT},
+) where {GFT<:Number,UFT<:Number}
+    assembler = SysmatAssemblerSparseSymm()
+    return mass_like(self, assembler, geom, u)
+end
+
 end

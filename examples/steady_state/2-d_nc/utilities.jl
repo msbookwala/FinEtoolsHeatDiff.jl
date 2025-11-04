@@ -30,7 +30,7 @@ function build_union_mesh(fens_i, fens_sd, edge_nodes_sd; lam_order = 0)
     u_u = NodalField(zeros(size(fens_u.xyz, 1), 1))
     numberdofs!(u_u)
     femm_u = FEMMHeatDiff(IntegDomain(fes_u, GaussRule(1, 2)), material)
-    if lam_order != 0
+    if lam_order == 0
         M_u = none
     else
         M_u = mass(femm_u, geom_u, u_u)

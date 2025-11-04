@@ -66,4 +66,6 @@ u_i = NodalField(zeros(size(fens_i.xyz, 1), 2)) # displacement field
 numberdofs!(u_i)
 D1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1,
                      boundaryfes1; lam_order=1,tol=1e-8)
+
+mm = mass_like(femm1, geom1, T1)
 aaa = 0
