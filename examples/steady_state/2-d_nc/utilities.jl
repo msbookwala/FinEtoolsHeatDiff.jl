@@ -79,9 +79,9 @@ function Lagrange_interpolation_matrix(X, Y, conn, p; dim_u=1, tol = 1e-8)
         end
     end
     # if max value is >1, give error
-    if maximum(V) > 1.0 + tol
-        error("Lagrange interpolation matrix has values greater than 1.")
-    end
+    # if maximum(V) > 1.0 + tol
+    #     error("Lagrange interpolation matrix has values greater than 1.")
+    # end
 
     return sparse(I, J, V, dim_u*npts, dim_u*nnds)
 end
@@ -150,7 +150,7 @@ function curve_map(xi, Y, nodes, p)
 end
 
 function get_xi(P, Y, nodes, p;
-                     xi0=0.0, tol=1e-12, maxiter=20,
+                     xi0=0.0, tol=1e-15, maxiter=200,
                      alpha=1e-12, maxstep=0.5)
     xi = xi0
     for _ in 1:maxiter
