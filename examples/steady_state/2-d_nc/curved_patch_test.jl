@@ -7,13 +7,13 @@ using LinearAlgebra
 include("utilities.jl")
 
 
-N_elem1 = 23
-N_elem2 = 24
+N_elem1 = 2
+N_elem2 = 3
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "q"
-skew = 0.18
-lam_order = 0
+skew = 0.0
+lam_order = 1
 
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
@@ -22,16 +22,18 @@ material = MatHeatDiff(kappa)
 width1 = 1.0
 height1 = 2.0
 if left_m == "t"
-    fens1, fes1 = T3block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    fens1, fes1 = T6block(width1, height1, floor(Int, N_elem1/2), N_elem1)
     Rule1 = TriRule(1)
 else
-    fens1, fes1 = Q4block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    xs1 = collect(linearspace(0.0, width1, floor(Int, N_elem1/2)+1))
+    ys1 = collect(linearspace(0.0, height1, N_elem1+1))
+    fens1, fes1 = Q9blockx(xs1, ys1)
     Rule1 = GaussRule(2,2)
 end
 
-# edge_nodes1 = selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)
 boundaryfes1 = meshboundary(fes1)
 edge_fes1 = subset(boundaryfes1, selectelem(fens1, boundaryfes1,  box=[width1,width1, 0.0,height1], inflate=1e-8))
+
 
 fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 1.0)
 
@@ -64,10 +66,10 @@ F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
 width2 = 1.0
 height2 = 2.0
 if right_m == "t"
-    fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    fens2, fes2 = T6block(width2, height2, floor(Int, N_elem2/2), N_elem2)
     Rule2 = TriRule(1)
 else
-    fens2, fes2 = Q4block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    fens2, fes2 = Q8block(width2, height2, floor(Int, N_elem2/2), N_elem2)
     Rule2 = GaussRule(2,2)
 end
 # shift the second mesh to the right by 1.0
@@ -107,7 +109,7 @@ F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 
 xs_i = ones(N_elem_i+1)
 ys_i = collect(linearspace(0.0, 2.0, N_elem_i+1))
-fens_i, fes_i = L2blockx2D(xs_i, ys_i)
+fens_i, fes_i = L3blockx2D(xs_i, ys_i)
 fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 1.0)
 
 geom_i = NodalField(fens_i.xyz)
@@ -136,20 +138,20 @@ scattersysvec!(T1, X[1:size(K1_ff,1)])
 scattersysvec!(T2, X[size(K1_ff,1)+1 : size(K1_ff,1)+size(K2_ff,1)])
 scattersysvec!(u_i, X[size(K1_ff,1)+size(K2_ff,1)+1 : end])
 
-# File1 = "patch_test_left.vtk"
-# vtkexportmesh(
-#     File1,
-#     connasarray(fes1),
-#     [geom1.values T1.values],
-#     FinEtools.MeshExportModule.VTK.T3;
-#     scalars = [("Temperature", T1.values)],
-# )
-# File2 = "patch_test_right.vtk"
-# vtkexportmesh(
-#     File2,
-#     connasarray(fes2),
-#     [geom2.values T2.values],
-#     FinEtools.MeshExportModule.VTK.T3;
-#     scalars = [("Temperature", T2.values)],
-# )
+# # File1 = "patch_test_left.vtk"
+# # vtkexportmesh(
+# #     File1,
+# #     connasarray(fes1),
+# #     [geom1.values T1.values],
+# #     FinEtools.MeshExportModule.VTK.T3;
+# #     scalars = [("Temperature", T1.values)],
+# # )
+# # File2 = "patch_test_right.vtk"
+# # vtkexportmesh(
+# #     File2,
+# #     connasarray(fes2),
+# #     [geom2.values T2.values],
+# #     FinEtools.MeshExportModule.VTK.T3;
+# #     scalars = [("Temperature", T2.values)],
+# # )
 println(u_i.values)

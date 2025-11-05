@@ -3,14 +3,15 @@ using LinearAlgebra
 using FinEtools
 using FinEtools.AlgoBaseModule
 
-function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes_idx, boundary_fes_sd; lam_order = 0,tol=1e-8)
-    edge_nodes_sd = unique(collect(Iterators.flatten(boundary_fes_sd.conn[edge_fes_idx])))
-    fens_u, fes_u, M_u = build_union_mesh(fens_i, fens_sd, edge_nodes_sd; lam_order=lam_order)
+function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8)
+    # edge_nodes_sd = unique(collect(Iterators.flatten(edge_fes.conn[:])))
+    p = maximum(length.(edge_fes.conn)) - 1
+    fens_u, fes_u, M_u = build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order=lam_order)
     X = fens_u.xyz[ :, 1:2]
     
-    Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], boundary_fes_sd.conn[edge_fes_idx], 1)
+    Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], edge_fes.conn, p)
     if lam_order != 0
-        Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, 1)
+        Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, p)
         D = Pi_phi' * M_u * Pi_NC
     else 
     # R = build_R_from_node_ids(edge_nodes_sd, count(fens_sd); dim_u=1)
@@ -21,9 +22,19 @@ function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes_idx, boundary_fes_sd; l
     return D    
 end
 
-function build_union_mesh(fens_i, fens_sd, edge_nodes_sd; lam_order = 0)
-    endpoints = sort(unique(vcat(fens_i.xyz[:, :], fens_sd.xyz[edge_nodes_sd, :]), dims=1), dims=1)
-    fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
+function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0)
+    if p==1
+        edge_nodes_sd = unique(collect(Iterators.flatten(edge_fes.conn[:])))
+        endpoints = sort(unique(vcat(fens_i.xyz[:, :], fens_sd.xyz[edge_nodes_sd, :]), dims=1), dims=1)
+        fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
+    elseif p==2
+        corner_nodes_sd = unique(stack(edge_fes.conn, dims=1)[:,1:2])
+        corner_nodes_i = unique(stack(fes_i.conn, dims=1)[:,1:2])
+        endpoints = sort(unique(vcat(fens_i.xyz[corner_nodes_i, :], fens_sd.xyz[corner_nodes_sd, :]), dims=1), dims=1)
+        fens_u, fes_u = L3blockx2D(endpoints[:, 1], endpoints[:, 2])
+    else
+        error("build_union_mesh: p=$p not implemented")
+    end
     kappa = [1.0 0; 0 1.0] 
     material = MatHeatDiff(kappa)
     geom_u = NodalField(fens_u.xyz)

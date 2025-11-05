@@ -171,7 +171,7 @@ version = "1.14.0"
 
 [[deps.FinEtools]]
 deps = ["DataDrop", "DelimitedFiles", "HDF5", "LinearAlgebra", "LoopVectorization", "Printf", "Random", "SparseArrays", "Statistics", "SymRCM", "Test", "Unicode", "WriteVTK"]
-git-tree-sha1 = "3702922d9ac2c232f86d62c10793dca1517137ce"
+git-tree-sha1 = "21b21e5dd1566f802be8453cfb30e26c352d1963"
 repo-rev = "main"
 repo-url = "https://github.com/msbookwala/FinEtools.jl"
 uuid = "c470d985-ac36-4012-bfd4-c92e93afba4f"
