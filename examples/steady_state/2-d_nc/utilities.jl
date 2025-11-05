@@ -150,6 +150,10 @@ function curve_map(xi, Y, nodes, p)
     dN  = lagrange_shapes_deriv_1d(p, xi)
     x = 0.0; y = 0.0
     dx = 0.0; dy = 0.0
+    # temporary change in order of nodes
+    if p == 2
+        nodes = [nodes[1], nodes[3], nodes[2]]
+    end
     for a in 1:p+1
         j = nodes[a]
         Xja, Yja = Y[j,1], Y[j,2]
