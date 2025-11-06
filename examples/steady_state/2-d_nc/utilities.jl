@@ -13,24 +13,30 @@ function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8
     if lam_order != 0
         Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, p)
         D = Pi_phi' * M_u * Pi_NC
+        return D, Pi_NC, Pi_phi
     else 
     # R = build_R_from_node_ids(edge_nodes_sd, count(fens_sd); dim_u=1)
         S = build_S_from_elements(fens_u.xyz[:, 1:2], fes_u.conn,
                               fens_i.xyz[:, 1:2], fes_i.conn, 1; tol=tol, dim_u=1)
         D = S' * M_u * Pi_NC
+        return D, Pi_NC, S
     end
-    return D    
 end
 
+# TODO: parameterise sort and make it agnostic to the direction. here it is in y direction only
 function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0)
     if p==1
         edge_nodes_sd = unique(collect(Iterators.flatten(edge_fes.conn[:])))
-        endpoints = sort(unique(vcat(fens_i.xyz[:, :], fens_sd.xyz[edge_nodes_sd, :]), dims=1), dims=1)
+        endpoints = unique(vcat(fens_i.xyz[:, :], fens_sd.xyz[edge_nodes_sd, :]), dims=1)
+        p = sortperm(endpoints[:, 2])
+        endpoints = endpoints[p, :]
         fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
     elseif p==2
         corner_nodes_sd = unique(stack(edge_fes.conn, dims=1)[:,1:2])
         corner_nodes_i = unique(stack(fes_i.conn, dims=1)[:,1:2])
-        endpoints = sort(unique(vcat(fens_i.xyz[corner_nodes_i, :], fens_sd.xyz[corner_nodes_sd, :]), dims=1), dims=1)
+        endpoints = unique(vcat(fens_i.xyz[corner_nodes_i, :], fens_sd.xyz[corner_nodes_sd, :]), dims=1)
+        p = sortperm(endpoints[:, 2])
+        endpoints = endpoints[p, :]
         fens_u, fes_u = L3blockx2D(endpoints[:, 1], endpoints[:, 2])
     else
         error("build_union_mesh: p=$p not implemented")
@@ -72,7 +78,7 @@ function Lagrange_interpolation_matrix(X, Y, conn, p; dim_u=1, tol = 1e-8)
             elseif abs(xi - 1.0) <= eps_end
                 for k in 0:(dim_u-1)
                     push!(I, (r-1)*dim_u + k + 1)
-                    push!(J, (nodes[end]-1)*dim_u + k + 1)
+                    push!(J, (nodes[2]-1)*dim_u + k + 1)
                     push!(V, 1.0)
                 end
                 break
@@ -80,9 +86,15 @@ function Lagrange_interpolation_matrix(X, Y, conn, p; dim_u=1, tol = 1e-8)
                 N = lagrange_1d(xi, p)
                 for a in 1:(p+1)
                     for k in 0:(dim_u-1)
-                        push!(I, (r-1)*dim_u + k + 1)
+                        push!(I, (r -1)*dim_u + k + 1)
                         push!(J, (nodes[a]-1)*dim_u + k + 1)
-                        push!(V, N[a])
+                        if a ==1
+                            push!(V, N[a])
+                        elseif a ==2
+                            push!(V, N[end])
+                        else
+                            push!(V, N[a-1])
+                        end
                     end
                 end
                 break
@@ -209,7 +221,7 @@ function build_R_from_node_ids(interface_nodes, n_total_nodes; dim_u)
     return sparse(I, J, V, nrows, ncols)
 end
 
-function build_S_from_elements(fens_u_xyz, conn_u, fens_frame_xyz, conn_frame, p_frame; tol=1e-8, dim_u=1)
+function build_S_from_elements(fens_u_xyz, conn_u, fens_frame_xyz, conn_frame, p_frame; tol=1e-4, dim_u=1)
 
     n_u_e = size(conn_u, 1)
     n_f_e = size(conn_frame, 1)

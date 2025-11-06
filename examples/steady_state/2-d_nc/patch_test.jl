@@ -118,8 +118,8 @@ else
 end
 numberdofs!(u_i)
 femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), material)
-D1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
-D2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+D1,_,_ = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
+D2,_,_ = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
 
 # D1 = D1[:, setdiff(1:count(fens1), dbc_nodes1)]
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]

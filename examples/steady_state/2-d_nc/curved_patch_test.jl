@@ -11,8 +11,9 @@ N_elem1 = 2
 N_elem2 = 3
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
-right_m = "q"
+right_m = "t"
 skew = 0.0
+bend = 0.1
 lam_order = 1
 
 kappa = [1.0 0; 0 1.0] 
@@ -35,8 +36,9 @@ boundaryfes1 = meshboundary(fes1)
 edge_fes1 = subset(boundaryfes1, selectelem(fens1, boundaryfes1,  box=[width1,width1, 0.0,height1], inflate=1e-8))
 
 
-fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 1.0)
-
+# fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 1.0)
+fens1.xyz[:, 1] .+= bend * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 1.0).^2
+#
 
 geom1 = NodalField(fens1.xyz)
 T1 = NodalField(zeros(size(fens1.xyz, 1), 1)) # displacement field
@@ -78,7 +80,8 @@ fens2.xyz[:, 1] .+= 1.0
 boundaryfes2 = meshboundary(fes2)
 edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2, box=[1.0,1.0, 0.0,height2], inflate=1e-8))
 
-fens2.xyz[:, 1] .+= skew * (2.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 1.0)
+# fens2.xyz[:, 1] .+= skew * (2.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 1.0)
+fens2.xyz[:, 1] .+= bend * (2.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 1.0).^2
 
 geom2 = NodalField(fens2.xyz)
 T2 = NodalField(zeros(size(fens2.xyz, 1), 1)) # displacement field
@@ -110,7 +113,8 @@ F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 xs_i = ones(N_elem_i+1)
 ys_i = collect(linearspace(0.0, 2.0, N_elem_i+1))
 fens_i, fes_i = L3blockx2D(xs_i, ys_i)
-fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 1.0)
+# fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 1.0)
+fens_i.xyz[:, 1] .+= bend * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 1.0).^2
 
 geom_i = NodalField(fens_i.xyz)
 if lam_order == 0
@@ -120,8 +124,10 @@ else
 end
 numberdofs!(u_i)
 femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), material)
-D1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
-D2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+D1,Pi_NC1,Pi_phi1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
+D2,Pi_NC2,Pi_phi2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+# (error("oh no!"))
+
 
 # D1 = D1[:, setdiff(1:count(fens1), dbc_nodes1)]
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
