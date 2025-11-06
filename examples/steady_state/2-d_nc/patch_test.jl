@@ -136,20 +136,14 @@ scattersysvec!(T1, X[1:size(K1_ff,1)])
 scattersysvec!(T2, X[size(K1_ff,1)+1 : size(K1_ff,1)+size(K2_ff,1)])
 scattersysvec!(u_i, X[size(K1_ff,1)+size(K2_ff,1)+1 : end])
 
-# File1 = "patch_test_left.vtk"
-# vtkexportmesh(
-#     File1,
-#     connasarray(fes1),
-#     [geom1.values T1.values],
-#     FinEtools.MeshExportModule.VTK.T3;
-#     scalars = [("Temperature", T1.values)],
-# )
-# File2 = "patch_test_right.vtk"
-# vtkexportmesh(
-#     File2,
-#     connasarray(fes2),
-#     [geom2.values T2.values],
-#     FinEtools.MeshExportModule.VTK.T3;
-#     scalars = [("Temperature", T2.values)],
-# )
+File1 = "patch_test_left.vtk"
+vtkexportmesh(
+    File1,
+    fens1, fes1,scalars = [("Temperature", T1.values)]
+)
+File2 = "patch_test_right.vtk"
+vtkexportmesh(
+    File2,
+    fens2, fes2,scalars = [("Temperature", T2.values)]
+)
 println(u_i.values)

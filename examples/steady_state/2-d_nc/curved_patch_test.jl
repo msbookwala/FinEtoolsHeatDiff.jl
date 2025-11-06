@@ -7,8 +7,8 @@ using LinearAlgebra
 include("utilities.jl")
 
 
-N_elem1 = 2
-N_elem2 = 3
+N_elem1 = 20
+N_elem2 = 30
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "q"
@@ -168,17 +168,11 @@ geom2vals = geom2.values
 File1 = "patch_test_left.vtk"
 vtkexportmesh(
     File1,
-    connasarray(fes1),
-    [geom1vals T1.values],
-    FinEtools.MeshExportModule.VTK.Q9;
-    scalars = [("Temperature", T1.values)],
+    fens1, fes1,scalars = [("Temperature", T1.values)]
 )
 File2 = "patch_test_right.vtk"
 vtkexportmesh(
     File2,
-    connasarray(fes2),
-    [geom2vals T2.values],
-    FinEtools.MeshExportModule.VTK.Q9;
-    scalars = [("Temperature", T2.values)],
+    fens2, fes2,scalars = [("Temperature", T2.values)]
 )
 println(u_i.values)
