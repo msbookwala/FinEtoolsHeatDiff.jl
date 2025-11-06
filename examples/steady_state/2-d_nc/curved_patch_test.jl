@@ -10,11 +10,11 @@ include("utilities.jl")
 N_elem1 = 7
 N_elem2 = 11
 N_elem_i = min(N_elem1, N_elem2)
-left_m = "q"
+left_m = "t"
 right_m = "q"
 skew = 0.0
 bend = 0.2
-lam_order = 0
+lam_order = 1
 
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
@@ -24,7 +24,7 @@ width1 = 1.0
 height1 = 2.0
 if left_m == "t"
     fens1, fes1 = T6block(width1, height1, floor(Int, N_elem1/2), N_elem1)
-    Rule1 = TriRule(1)
+    Rule1 = TriRule(9)
 else
     xs1 = collect(linearspace(0.0, width1, floor(Int, N_elem1/2)+1))
     ys1 = collect(linearspace(0.0, height1, N_elem1+1))
@@ -43,7 +43,7 @@ width2 = 1.0
 height2 = 2.0
 if right_m == "t"
     fens2, fes2 = T6block(width2, height2, floor(Int, N_elem2/2), N_elem2)
-    Rule2 = TriRule(1)
+    Rule2 = TriRule(3)
 else
     xs2 = collect(linearspace(1.0 ,1.0+ width2, floor(Int, N_elem2/2)+1))
     ys2 = collect(linearspace(0.0, height2, N_elem2+1))
