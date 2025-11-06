@@ -23,6 +23,24 @@ function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8
     end
 end
 
+function build_D_matrix(fens_u, fes_u, M_u, fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8)
+    p = maximum(length.(edge_fes.conn)) - 1
+    X = fens_u.xyz[ :, 1:2]
+    
+    Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], edge_fes.conn, p)
+    if lam_order != 0
+        Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, p)
+        D = Pi_phi' * M_u * Pi_NC
+        return D, Pi_NC, Pi_phi
+    else 
+    # R = build_R_from_node_ids(edge_nodes_sd, count(fens_sd); dim_u=1)
+        S = build_S_from_elements(fens_u.xyz[:, 1:2], fes_u.conn,
+                              fens_i.xyz[:, 1:2], fes_i.conn, 1; tol=tol, dim_u=1)
+        D = S' * M_u * Pi_NC
+        return D, Pi_NC, S
+    end
+end
+
 # TODO: parameterise sort and make it agnostic to the direction. here it is in y direction only
 function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0)
     if p==1
