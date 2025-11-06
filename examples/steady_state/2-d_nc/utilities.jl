@@ -35,7 +35,7 @@ function build_D_matrix(fens_u, fes_u, M_u, fens_i, fes_i, fens_sd, edge_fes; la
     else 
     # R = build_R_from_node_ids(edge_nodes_sd, count(fens_sd); dim_u=1)
         S = build_S_from_elements(fens_u.xyz[:, 1:2], fes_u.conn,
-                              fens_i.xyz[:, 1:2], fes_i.conn, 1; tol=tol, dim_u=1)
+                              fens_i.xyz[:, 1:2], fes_i.conn, p; tol=tol, dim_u=1)
         D = S' * M_u * Pi_NC
         return D, Pi_NC, S
     end
@@ -247,10 +247,13 @@ function build_S_from_elements(fens_u_xyz, conn_u, fens_frame_xyz, conn_frame, p
 
     for q in 1:n_u_e
         nodes_q = conn_u[q][:]
-        nA = nodes_q[1]; nB = nodes_q[end]
+        nA = nodes_q[1]; nB = nodes_q[2]
         A = (Float64(fens_u_xyz[nA,1]), Float64(fens_u_xyz[nA,2]))
         B = (Float64(fens_u_xyz[nB,1]), Float64(fens_u_xyz[nB,2]))
         mid = ((A[1]+B[1])/2.0, (A[2]+B[2])/2.0)
+        if p_frame == 2
+            mid = (Float64(fens_u_xyz[nodes_q[3],1]), Float64(fens_u_xyz[nodes_q[3],2]))
+        end
         found = false
 
         for e in 1:n_f_e

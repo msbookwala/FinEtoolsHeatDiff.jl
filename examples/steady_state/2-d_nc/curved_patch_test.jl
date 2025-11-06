@@ -7,14 +7,14 @@ using LinearAlgebra
 include("utilities.jl")
 
 
-N_elem1 = 20
-N_elem2 = 30
+N_elem1 = 7
+N_elem2 = 11
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "q"
 skew = 0.0
 bend = 0.2
-lam_order = 2
+lam_order = 0
 
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
