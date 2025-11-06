@@ -7,15 +7,14 @@ using LinearAlgebra
 include("utilities.jl")
 
 
-N_elem1 = 7
-N_elem2 = 11
+N_elem1 = 20
+N_elem2 = 30
 N_elem_i = min(N_elem1, N_elem2)
-left_m = "t"
+left_m = "q"
 right_m = "q"
 skew = 0.0
 bend = 0.2
-lam_order = 1
-
+lam_order = 2
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 
@@ -62,8 +61,8 @@ xs_i = ones(N_elem_i+1)
 ys_i = collect(linearspace(0.0, 2.0, N_elem_i+1))
 fens_i, fes_i = L3blockx2D(xs_i, ys_i)
 
-fens_u1, fes_u1, M_u1 = build_union_mesh(fens_i,fes_i, fens1, edge_fes1, p; lam_order=lam_order)
-fens_u2, fes_u2, M_u2 = build_union_mesh(fens_i,fes_i, fens2, edge_fes2, p; lam_order=lam_order)
+fens_u1, fes_u1, _ = build_union_mesh(fens_i,fes_i, fens1, edge_fes1, p; lam_order=lam_order)
+fens_u2, fes_u2, _ = build_union_mesh(fens_i,fes_i, fens2, edge_fes2, p; lam_order=lam_order)
 ############################################################################################
 
 # fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 1.0)
@@ -138,8 +137,8 @@ numberdofs!(u_i)
 femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), material)
 
 
-D1,Pi_NC1,Pi_phi1 = build_D_matrix(fens_u1, fes_u1, M_u1, fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
-D2,Pi_NC2,Pi_phi2 = build_D_matrix(fens_u2, fes_u2, M_u2, fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+D1,Pi_NC1,Pi_phi1 = build_D_matrix(fens_u1, fes_u1, fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
+D2,Pi_NC2,Pi_phi2 = build_D_matrix(fens_u2, fes_u2, fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
 # (error("oh no!"))
 
 

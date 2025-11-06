@@ -23,9 +23,21 @@ function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8
     end
 end
 
-function build_D_matrix(fens_u, fes_u, M_u, fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8)
+function build_D_matrix(fens_u, fes_u, fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8)
     p = maximum(length.(edge_fes.conn)) - 1
     X = fens_u.xyz[ :, 1:2]
+
+    kappa = [1.0 0; 0 1.0] 
+    material = MatHeatDiff(kappa)
+    geom_u = NodalField(fens_u.xyz)
+    u_u = NodalField(zeros(size(fens_u.xyz, 1), 1))
+    numberdofs!(u_u)
+    femm_u = FEMMHeatDiff(IntegDomain(fes_u, GaussRule(1, 4)), material)
+    if lam_order == 0
+        M_u = mass_like(femm_u, geom_u, u_u)
+    else
+        M_u = mass(femm_u, geom_u, u_u)
+    end
     
     Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], edge_fes.conn, p)
     if lam_order != 0
@@ -81,6 +93,11 @@ function Lagrange_interpolation_matrix(X, Y, conn, p; dim_u=1, tol = 1e-8)
     I = Int[]
     J = Int[]
     V = Float64[]
+    if p ==1
+        perm = [1,2]
+    elseif p ==2
+        perm = [1,3,2]
+    end
     for r in 1:npts
         for elem_idx in 1:nels
             nodes = conn[elem_idx][:]
@@ -102,17 +119,19 @@ function Lagrange_interpolation_matrix(X, Y, conn, p; dim_u=1, tol = 1e-8)
                 break
             else
                 N = lagrange_1d(xi, p)
+                N = N[perm]
                 for a in 1:(p+1)
                     for k in 0:(dim_u-1)
                         push!(I, (r -1)*dim_u + k + 1)
                         push!(J, (nodes[a]-1)*dim_u + k + 1)
-                        if a ==1
-                            push!(V, N[a])
-                        elseif a ==2
-                            push!(V, N[end])
-                        else
-                            push!(V, N[a-1])
-                        end
+                        push!(V, N[a])
+                        # if a ==1
+                        #     push!(V, N[a])
+                        # elseif a ==2
+                        #     push!(V, N[end])
+                        # else
+                        #     push!(V, N[a-1])
+                        # end
                     end
                 end
                 break
@@ -181,9 +200,13 @@ function curve_map(xi, Y, nodes, p)
     x = 0.0; y = 0.0
     dx = 0.0; dy = 0.0
     # temporary change in order of nodes
-    if p == 2
-        nodes = [nodes[1], nodes[3], nodes[2]]
+    if p ==1
+        perm = [1,2]
+    elseif p ==2
+        perm = [1,3,2]
     end
+    N = N[perm]
+    dN = dN[perm]
     for a in 1:p+1
         j = nodes[a]
         Xja, Yja = Y[j,1], Y[j,2]
