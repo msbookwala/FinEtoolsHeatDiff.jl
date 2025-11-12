@@ -23,9 +23,9 @@ using FinEtoolsHeatDiff.MatHeatDiffModule: MatHeatDiff
 export MatHeatDiff
 
 using FinEtoolsHeatDiff.FEMMHeatDiffModule: FEMMHeatDiff,
-    conductivity, energy, inspectintegpoints, capacity, mass, mass_like
+    conductivity, energy, inspectintegpoints, capacity, mass, mass_like, L2_err
 # Exported: type  for linear heat diffusion and discretization methods
-export FEMMHeatDiff, conductivity, energy, inspectintegpoints, capacity, mass, mass_like
+export FEMMHeatDiff, conductivity, energy, inspectintegpoints, capacity, mass, mass_like, L2_err
 
 using FinEtoolsHeatDiff.FEMMHeatDiffSurfModule: FEMMHeatDiffSurf,
     surfacetransfer, surfacetransferloads

@@ -299,3 +299,32 @@ function build_S_from_elements(fens_u_xyz, conn_u, fens_frame_xyz, conn_frame, p
 
     return sparse(I, J, V, n_u_e*dim_u, n_f_e*dim_u)
 end
+
+# function L2_err(femm, geom, u, exact_u_func; npts=3)
+#     err = ElementalField(zeros(count(femm.integdomain.fes), 1))
+#     integ_rule = GaussRule(npts, 2)
+#     for (e, fe) in enumerate(femm.integdomain.fes.conn)
+#         ke = get_element_dofs(femm, e)
+#         ue = gathersysvec(u, ke)
+#         geom_e = restrict(geom, fe)
+#         err_e = 0.0
+#         for (wt, xi) in zip(integ_rule.weights, integ_rule.pts)
+#             N = shape_functions(fe.eltype, xi)
+#             x, y = 0.0, 0.0
+#             uh = 0.0
+#             for (a, node) in enumerate(fe.conn)
+#                 Xa, Ya = geom_e.values[a, 1], geom_e.values[a, 2]
+#                 Na = N[a]
+#                 x += Na * Xa
+#                 y += Na * Ya
+#                 uh += Na * ue[a]
+#             end
+#             u_exact = exact_u_func(x, y)
+#             err_e += wt * (uh - u_exact)^2
+#         end
+#         J = element_jacobian(femm, e, integ_rule)
+#         err_e *= J
+#         err.values[e] = sqrt(err_e)
+#     end
+#     return err
+# end
