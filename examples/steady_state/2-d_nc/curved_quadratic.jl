@@ -4,6 +4,7 @@ using FinEtoolsHeatDiff
 using FinEtoolsHeatDiff.AlgoHeatDiffModule
 using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
+using Plots
 include("utilities.jl")
 
 
@@ -12,9 +13,9 @@ N_elem2 = 30
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "q"
-skew = 0.0
-bend = 0.7
-lam_order = 2
+skew = 0.1
+bend = 0.0
+lam_order = 0
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 Q = -6.0
@@ -46,7 +47,8 @@ end
 boundaryfes1 = meshboundary(fes1)
 edge_fes1 = subset(boundaryfes1, selectelem(fens1, boundaryfes1,  box=[width1,width1, 0.0,height1], inflate=1e-8))
 
-p = maximum(length.(edge_fes1.conn)) - 1
+
+
 #########################################################################################
 
 
@@ -69,15 +71,25 @@ edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2, box=[0.5,0.5, 0
 
 ##########################################################################################
 
+p = maximum(length.(edge_fes1.conn)) - 1
+p_sd = maximum(length.(edge_fes1.conn)) - 1
+p_i = min(p_sd, lam_order)
+
 xs_i = 0.5*ones(N_elem_i+1)
 ys_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
-fens_i, fes_i = L3blockx2D(xs_i, ys_i)
+if p_i < 2 && bend == 0
+    fens_i, fes_i = L2blockx2D(xs_i, ys_i)
+else
+    fens_i, fes_i = L3blockx2D(xs_i, ys_i)
+end
 
 fens_u1, fes_u1, _ = build_union_mesh(fens_i,fes_i, fens1, edge_fes1, p; lam_order=lam_order)
 fens_u2, fes_u2, _ = build_union_mesh(fens_i,fes_i, fens2, edge_fes2, p; lam_order=lam_order)
 ############################################################################################
 
-# fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 1.0)
+
+
+fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 0.5)
 fens1.xyz[:, 1] .+= bend * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 0.5).^2
 #
 
@@ -114,7 +126,7 @@ F1_ff = vector_blocked(F1, nfreedofs(T1))[:f] - K1_fd * gathersysvec(T1, :d)
 
 ################################################################################
 
-# fens2.xyz[:, 1] .+= skew * (2.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 1.0)
+fens2.xyz[:, 1] .+= skew * (1.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 0.5)
 fens2.xyz[:, 1] .+= bend * (1.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 0.5).^2
 
 geom2 = NodalField(fens2.xyz)
@@ -148,7 +160,10 @@ F2_ff = vector_blocked(F2, nfreedofs(T2))[:f] - K2_fd * gathersysvec(T2, :d)
 
 
 #################################################################################
-# fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 1.0)
+fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 0.5)
+fens_u1.xyz[:, 1] .+= skew * fens_u1.xyz[:, 1].*(fens_u1.xyz[:, 2] .- 0.5)
+fens_u2.xyz[:, 1] .+= skew * fens_u2.xyz[:, 1].*(fens_u2.xyz[:, 2] .- 0.5)
+
 fens_i.xyz[:, 1] .+= bend * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 0.5).^2
 fens_u1.xyz[:, 1] .+= bend * fens_u1.xyz[:, 1].*(fens_u1.xyz[:, 2] .- 0.5).^2
 fens_u2.xyz[:, 1] .+= bend * fens_u2.xyz[:, 1].*(fens_u2.xyz[:, 2] .- 0.5).^2
@@ -205,3 +220,5 @@ vtkexportmesh(
     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
 )
 println(u_i.values)
+# plot(geom_i.values[:,1], u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
+plot( u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")

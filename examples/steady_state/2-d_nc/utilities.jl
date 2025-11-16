@@ -3,6 +3,39 @@ using LinearAlgebra
 using FinEtools
 using FinEtools.AlgoBaseModule
 
+
+
+# function extract_interface_fes(edge_fe_s, fen_s, boxes)
+#     # returns indices of edge fes that are on the interface 
+#     # Extract boundary elements within given boxes and take the complement
+#     interface_fes = []
+#     for i in 1:length(edge_fe_s)
+#         boundary_fes = []
+#         for box in boxes
+#             boundary_fes = union(boundary_fes, selectelem(fen_s[i], edge_fe_s[i], box=box, inflate=1e-8))
+#         end
+#         interface_fes_idxi =  setdiff(range(1, count(edge_fe_s[i])), boundary_fes)
+#         push!(interface_fes, subset(edge_fe_s[i], interface_fes_idxi))
+#     end
+#     return interface_fes
+# end
+
+# function make_union_mesh(sd_interface_fe_s, sd_fens_s,  fes_i, fens_i, p; lam_order=0)
+#     # make a common list of points within the interface elements and then do unique
+#     all_points = []
+#     for (fe_s, fens_s) in zip(sd_interface_fe_s, sd_fens_s)
+#         for fe in fe_s.conn
+#             for node in fe
+#                 push!(all_points, fens_s.xyz[node,:])
+#             end
+#         end
+#     end
+#     points = unique(all_points)
+#     refine_1d_mesh(fens_i, fes_i, points; tol=1e-12)
+#     a=1
+
+# end
+
 function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8)
     # edge_nodes_sd = unique(collect(Iterators.flatten(edge_fes.conn[:])))
     p = maximum(length.(edge_fes.conn)) - 1
@@ -24,7 +57,8 @@ function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8
 end
 
 function build_D_matrix(fens_u, fes_u, fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8)
-    p = maximum(length.(edge_fes.conn)) - 1
+    p_sd = maximum(length.(edge_fes.conn)) - 1
+    p_i = maximum(length.(fes_i.conn)) - 1
     X = fens_u.xyz[ :, 1:2]
 
     kappa = [1.0 0; 0 1.0] 
@@ -38,36 +72,36 @@ function build_D_matrix(fens_u, fes_u, fens_i, fes_i, fens_sd, edge_fes; lam_ord
     else
         M_u = mass(femm_u, geom_u, u_u)
     end
-    
-    Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], edge_fes.conn, p)
+
+    Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], edge_fes.conn, p_sd)
     if lam_order != 0
-        Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, p)
+        Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, p_i)
         D = Pi_phi' * M_u * Pi_NC
         return D, Pi_NC, Pi_phi
     else 
     # R = build_R_from_node_ids(edge_nodes_sd, count(fens_sd); dim_u=1)
         S = build_S_from_elements(fens_u.xyz[:, 1:2], fes_u.conn,
-                              fens_i.xyz[:, 1:2], fes_i.conn, p; tol=tol, dim_u=1)
+                              fens_i.xyz[:, 1:2], fes_i.conn, p_i; tol=tol, dim_u=1)
         D = S' * M_u * Pi_NC
         return D, Pi_NC, S
     end
 end
 
 # TODO: parameterise sort and make it agnostic to the direction. here it is in y direction only
-function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0)
-    if p==1
-        edge_nodes_sd = unique(collect(Iterators.flatten(edge_fes.conn[:])))
-        endpoints = unique(vcat(fens_i.xyz[:, :], fens_sd.xyz[edge_nodes_sd, :]), dims=1)
-        p = sortperm(endpoints[:, 2])
-        endpoints = endpoints[p, :]
-        fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
-    elseif p==2
+function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0, curved=true)
         corner_nodes_sd = unique(stack(edge_fes.conn, dims=1)[:,1:2])
         corner_nodes_i = unique(stack(fes_i.conn, dims=1)[:,1:2])
         endpoints = unique(vcat(fens_i.xyz[corner_nodes_i, :], fens_sd.xyz[corner_nodes_sd, :]), dims=1)
-        p = sortperm(endpoints[:, 2])
-        endpoints = endpoints[p, :]
-        fens_u, fes_u = L3blockx2D(endpoints[:, 1], endpoints[:, 2])
+        q = sortperm(endpoints[:, 2])
+        endpoints = endpoints[q, :]
+    if p==1
+        fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
+    elseif p==2
+        if lam_order <= 1 && !curved
+            fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
+        else
+            fens_u, fes_u = L3blockx2D(endpoints[:, 1], endpoints[:, 2])
+        end
     else
         error("build_union_mesh: p=$p not implemented")
     end
@@ -299,32 +333,3 @@ function build_S_from_elements(fens_u_xyz, conn_u, fens_frame_xyz, conn_frame, p
 
     return sparse(I, J, V, n_u_e*dim_u, n_f_e*dim_u)
 end
-
-# function L2_err(femm, geom, u, exact_u_func; npts=3)
-#     err = ElementalField(zeros(count(femm.integdomain.fes), 1))
-#     integ_rule = GaussRule(npts, 2)
-#     for (e, fe) in enumerate(femm.integdomain.fes.conn)
-#         ke = get_element_dofs(femm, e)
-#         ue = gathersysvec(u, ke)
-#         geom_e = restrict(geom, fe)
-#         err_e = 0.0
-#         for (wt, xi) in zip(integ_rule.weights, integ_rule.pts)
-#             N = shape_functions(fe.eltype, xi)
-#             x, y = 0.0, 0.0
-#             uh = 0.0
-#             for (a, node) in enumerate(fe.conn)
-#                 Xa, Ya = geom_e.values[a, 1], geom_e.values[a, 2]
-#                 Na = N[a]
-#                 x += Na * Xa
-#                 y += Na * Ya
-#                 uh += Na * ue[a]
-#             end
-#             u_exact = exact_u_func(x, y)
-#             err_e += wt * (uh - u_exact)^2
-#         end
-#         J = element_jacobian(femm, e, integ_rule)
-#         err_e *= J
-#         err.values[e] = sqrt(err_e)
-#     end
-#     return err
-# end
