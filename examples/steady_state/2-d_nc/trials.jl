@@ -29,16 +29,16 @@ edge_fes4 = meshboundary(fes4)
 fens_s = [fens1, fens2, fens3, fens4]
 interface_fes = extract_interface_fes([edge_fes1, edge_fes2, edge_fes3, edge_fes4], fens_s,  boundary_boxes)
 
-leftx = collect(range(0.5, stop=0.5, length=5))
-lefty = collect(range(0.0, stop=1.0, length=5))
-fens_left, fes_left = L2blockx2D(leftx, lefty)
+# leftx = collect(range(0.5, stop=0.5, length=5))
+# lefty = collect(range(0.0, stop=1.0, length=5))
+# fens_left, fes_left = L2blockx2D(leftx, lefty)
 
-bottomx = collect(range(0.0, stop=1.0, length=5))
-bottomy = collect(range(0.5, stop=0.5, length=5))
-fens_bottom, fes_bottom = L2blockx2D(bottomx, bottomy)
+# bottomx = collect(range(0.0, stop=1.0, length=5))
+# bottomy = collect(range(0.5, stop=0.5, length=5))
+# fens_bottom, fes_bottom = L2blockx2D(bottomx, bottomy)
 
-fens_i,fes_i,c = mergemeshes(fens_left, fes_left, fens_bottom, fes_bottom, 1e-8)
-fes_i.conn = vcat(fes_i.conn, c.conn)
-fes_i.label = vcat(fes_i.label, c.label)
+# fens_i,fes_i,c = mergemeshes(fens_left, fes_left, fens_bottom, fes_bottom, 1e-8)
+# fes_i.conn = vcat(fes_i.conn, c.conn)
+# fes_i.label = vcat(fes_i.label, c.label)
 
-make_union_mesh(interface_fes, fens_s,  fes_i, fens_i, 1; lam_order=0)
+# make_union_mesh(interface_fes, fens_s,  fes_i, fens_i, 1; lam_order=0)

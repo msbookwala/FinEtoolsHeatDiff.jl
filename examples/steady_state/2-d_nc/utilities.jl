@@ -5,20 +5,20 @@ using FinEtools.AlgoBaseModule
 
 
 
-# function extract_interface_fes(edge_fe_s, fen_s, boxes)
-#     # returns indices of edge fes that are on the interface 
-#     # Extract boundary elements within given boxes and take the complement
-#     interface_fes = []
-#     for i in 1:length(edge_fe_s)
-#         boundary_fes = []
-#         for box in boxes
-#             boundary_fes = union(boundary_fes, selectelem(fen_s[i], edge_fe_s[i], box=box, inflate=1e-8))
-#         end
-#         interface_fes_idxi =  setdiff(range(1, count(edge_fe_s[i])), boundary_fes)
-#         push!(interface_fes, subset(edge_fe_s[i], interface_fes_idxi))
-#     end
-#     return interface_fes
-# end
+function extract_interface_fes(edge_fe_s, fen_s, boxes)
+    # returns indices of edge fes that are on the interface 
+    # Extract boundary elements within given boxes and take the complement
+    interface_fes = []
+    for i in 1:length(edge_fe_s)
+        boundary_fes = []
+        for box in boxes
+            boundary_fes = union(boundary_fes, selectelem(fen_s[i], edge_fe_s[i], box=box, inflate=1e-8))
+        end
+        interface_fes_idxi =  setdiff(range(1, count(edge_fe_s[i])), boundary_fes)
+        push!(interface_fes, subset(edge_fe_s[i], interface_fes_idxi))
+    end
+    return interface_fes
+end
 
 # function make_union_mesh(sd_interface_fe_s, sd_fens_s,  fes_i, fens_i, p; lam_order=0)
 #     # make a common list of points within the interface elements and then do unique
@@ -87,13 +87,36 @@ function build_D_matrix(fens_u, fes_u, fens_i, fes_i, fens_sd, edge_fes; lam_ord
     end
 end
 
+function trim(points, mask_points;tol = 1e-12, dir = 2)
+    q = sortperm(mask_points[:,dir])
+    mask_points = mask_points[q, :]
+    endpts = [mask_points[1,:], mask_points[end,:]]
+    trimmed_points = []
+    for i in 1:size(points, 1)
+        p = points[i, :]
+        if (p[1] >= endpts[1][1] - tol) && (p[1] <= endpts[2][1] + tol) &&
+           (p[2] >= endpts[1][2] - tol) && (p[2] <= endpts[2][2] + tol)
+            push!(trimmed_points, p)
+        end
+    end
+    return trimmed_points
+end
+
 # TODO: parameterise sort and make it agnostic to the direction. here it is in y direction only
-function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0, curved=true)
+function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0, curved=true, to_trim = false, dir = 2)
         corner_nodes_sd = unique(stack(edge_fes.conn, dims=1)[:,1:2])
         corner_nodes_i = unique(stack(fes_i.conn, dims=1)[:,1:2])
-        endpoints = unique(vcat(fens_i.xyz[corner_nodes_i, :], fens_sd.xyz[corner_nodes_sd, :]), dims=1)
-        q = sortperm(endpoints[:, 2])
+        if to_trim
+            trimmed_sd = trim(fens_sd.xyz[corner_nodes_sd, :], fens_i.xyz[corner_nodes_i, :]; tol=1e-10, dir=dir)
+            trimmed_i = trim(fens_i.xyz[corner_nodes_i, :], fens_sd.xyz[corner_nodes_sd, :]; tol=1e-10, dir=dir)
+            endpoints = unique(vcat(trimmed_i, trimmed_sd), dims=1)
+            endpoints = hcat(endpoints...)'
+        else
+            endpoints = unique(vcat(fens_i.xyz[corner_nodes_i, :], fens_sd.xyz[corner_nodes_sd, :]), dims=1)
+        end
+        q = sortperm(endpoints[:, dir])
         endpoints = endpoints[q, :]
+
     if p==1
         fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
     elseif p==2
