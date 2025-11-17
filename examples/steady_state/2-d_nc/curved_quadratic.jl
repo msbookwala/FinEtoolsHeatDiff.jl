@@ -7,15 +7,15 @@ using LinearAlgebra
 using Plots
 include("utilities.jl")
 
-r = 0
+# r = 0
 N_elem1 = 2*(2^r)
 N_elem2 = 3*(2^r)
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "q"
 skew = 0.
-bend = 0.0
-lam_order = 2
+bend = 0.5
+# lam_order = 2
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 Q = -6.0
@@ -175,7 +175,7 @@ else
     u_i  = NodalField(zeros(size(fens_i.xyz, 1), 1)) # Lagrange multipliers field
 end
 numberdofs!(u_i)
-femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), material)
+femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), MatHeatDiff(reshape([1.0], 1, 1)))
 
 
 D1,Pi_NC1,Pi_phi1 = build_D_matrix(fens_u1, fes_u1, fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
@@ -209,23 +209,25 @@ l2err1 = L2_err(femm1, geom1, T1, sol)
 l2err2 = L2_err(femm2, geom2, T2, sol)
 
 
-# File1 = "quadratic_test_left.vtk"
-# vtkexportmesh(
-#     File1,
-#     fens1, fes1,scalars = [("Temperature", T1.values), ("Err", l2err1.values)]
-# )
-# File2 = "quadratic_test_right.vtk"
-# vtkexportmesh(
-#     File2,
-#     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
-# )
-# println(u_i.values)
+File1 = "quadratic_test_left.vtk"
+vtkexportmesh(
+    File1,
+    fens1, fes1,scalars = [("Temperature", T1.values), ("Err", l2err1.values)]
+)
+File2 = "quadratic_test_right.vtk"
+vtkexportmesh(
+    File2,
+    fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
+)
+println(u_i.values)
 # # plot(geom_i.values[:,1], u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
 # plot( u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
 
 tot_l2 = sqrt(sum(l2err1.values.^2) + sum(l2err2.values.^2))
 
-exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
+# exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
+exact_lagrange(x,y) = -2*x/sqrt(1+(bend*(y-0.5))^2) + 4*y*(bend*(y-0.5))/sqrt(1+(bend*(y-0.5))^2)
+
 
 lag_err = L2_err(femm_i, geom_i, u_i, exact_lagrange)
 tot_lag_err = sqrt(sum(lag_err.values.^2))

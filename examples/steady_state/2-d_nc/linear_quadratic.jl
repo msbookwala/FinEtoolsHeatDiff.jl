@@ -8,14 +8,14 @@ using Plots
 include("utilities.jl")
 
 println(r)
-N_elem1 = 2*(2^r)
-N_elem2 = 3*(2^r)
+N_elem1 = 10*(2^r)
+N_elem2 = 15*(2^r)
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "t"
 skew = 0.5
 bend = 0.0
-lam_order = 0
+# lam_order = 1
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 
@@ -211,16 +211,16 @@ l2err1 = L2_err(femm1, geom1, T1, sol)
 l2err2 = L2_err(femm2, geom2, T2, sol)
 
 
-# File1 = "quadratic_test_left.vtk"
-# vtkexportmesh(
-#     File1,
-#     fens1, fes1,scalars = [("Temperature", T1.values), ("Err", l2err1.values)]
-# )
-# File2 = "quadratic_test_right.vtk"
-# vtkexportmesh(
-#     File2,
-#     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
-# )
+File1 = "quadratic_test_left.vtk"
+vtkexportmesh(
+    File1,
+    fens1, fes1,scalars = [("Temperature", T1.values), ("Err", l2err1.values)]
+)
+File2 = "quadratic_test_right.vtk"
+vtkexportmesh(
+    File2,
+    fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
+)
 # println(u_i.values)
 # plot(geom_i.values[:,1], u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
 # plot( u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")

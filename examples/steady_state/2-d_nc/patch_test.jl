@@ -7,20 +7,20 @@ using LinearAlgebra
 include("utilities.jl")
 
 
-N_elem1 = 23
-N_elem2 = 24
+N_elem1 = 2
+N_elem2 = 3
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
-right_m = "q"
-skew = 0.18
+right_m = "t"
+skew = 0.
 lam_order = 0
 
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 
 #########################################################################################
-width1 = 1.0
-height1 = 2.0
+width1 = 0.5
+height1 = 1.0
 if left_m == "t"
     fens1, fes1 = T3block(width1, height1, floor(Int, N_elem1/2), N_elem1)
     Rule1 = TriRule(1)
@@ -33,7 +33,7 @@ end
 boundaryfes1 = meshboundary(fes1)
 edge_fes1 = subset(boundaryfes1, selectelem(fens1, boundaryfes1,  box=[width1,width1, 0.0,height1], inflate=1e-8))
 
-fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 1.0)
+fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 0.5)
 
 
 geom1 = NodalField(fens1.xyz)
@@ -61,8 +61,8 @@ F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
 #########################################################################################
 
 
-width2 = 1.0
-height2 = 2.0
+width2 = 0.5
+height2 = 1.0
 if right_m == "t"
     fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
     Rule2 = TriRule(1)
@@ -71,17 +71,17 @@ else
     Rule2 = GaussRule(2,2)
 end
 # shift the second mesh to the right by 1.0
-fens2.xyz[:, 1] .+= 1.0
+fens2.xyz[:, 1] .+= 0.5
 
 boundaryfes2 = meshboundary(fes2)
-edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2, box=[1.0,1.0, 0.0,height2], inflate=1e-8))
+edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2, box=[0.5,0.5, 0.0,height2], inflate=1e-8))
 
-fens2.xyz[:, 1] .+= skew * (2.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 1.0)
+fens2.xyz[:, 1] .+= skew * (1.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 0.5)
 
 geom2 = NodalField(fens2.xyz)
 T2 = NodalField(zeros(size(fens2.xyz, 1), 1)) # displacement field
 
-box2 = [2.0,2.0,0.0,0.0]
+box2 = [1.0,1.0,0.0,0.0]
 dbc_nodes2 = selectnode(fens2; box=box2, inflate=1e-8)
 for i in dbc_nodes2
     setebc!(T2, [i], 1, 0.0)
@@ -96,7 +96,7 @@ K2_ff = matrix_blocked(K2, nfreedofs(T2), nfreedofs(T2))[:ff]
 F2 = zeros(size(K2, 1))
 F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 
-l2 = selectelem(fens2, meshboundary(fes2), box = [2.0,2.0, 0.0,height2], inflate=1e-8)
+l2 = selectelem(fens2, meshboundary(fes2), box = [1.0,1.0, 0.0,height2], inflate=1e-8)
 el2femm = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2), GaussRule(1,2)))
 fi2 = ForceIntensity(Float64[1.0])
 F2 = distribloads(el2femm, geom2, T2, fi2, 2)
@@ -105,10 +105,10 @@ F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 
 ##########################################################################################
 
-xs_i = ones(N_elem_i+1)
-ys_i = collect(linearspace(0.0, 2.0, N_elem_i+1))
+xs_i = 0.5*ones(N_elem_i+1)
+ys_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
 fens_i, fes_i = L2blockx2D(xs_i, ys_i)
-fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 1.0)
+fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 0.5)
 
 geom_i = NodalField(fens_i.xyz)
 if lam_order == 0
@@ -136,14 +136,18 @@ scattersysvec!(T1, X[1:size(K1_ff,1)])
 scattersysvec!(T2, X[size(K1_ff,1)+1 : size(K1_ff,1)+size(K2_ff,1)])
 scattersysvec!(u_i, X[size(K1_ff,1)+size(K2_ff,1)+1 : end])
 
+sol(x,y) = x-1
+err1 = L2_err(femm1, geom1, T1, sol)
+err2 = L2_err(femm2, geom2, T2, sol)
+
 File1 = "patch_test_left.vtk"
 vtkexportmesh(
     File1,
-    fens1, fes1,scalars = [("Temperature", T1.values)]
+    fens1, fes1,scalars = [("Temperature", T1.values), ("Err", err1.values)]
 )
 File2 = "patch_test_right.vtk"
 vtkexportmesh(
     File2,
-    fens2, fes2,scalars = [("Temperature", T2.values)]
+    fens2, fes2,scalars = [("Temperature", T2.values), ("Err", err2.values)]
 )
 println(u_i.values)
