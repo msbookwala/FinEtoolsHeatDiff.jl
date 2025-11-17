@@ -97,11 +97,7 @@ function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0, cur
     if p==1
         fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
     elseif p==2
-        if lam_order <= 1 && !curved
-            fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
-        else
-            fens_u, fes_u = L3blockx2D(endpoints[:, 1], endpoints[:, 2])
-        end
+        fens_u, fes_u = L3blockx2D(endpoints[:, 1], endpoints[:, 2])
     else
         error("build_union_mesh: p=$p not implemented")
     end
