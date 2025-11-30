@@ -2,6 +2,7 @@
 *.jl.*.cov
 *.jl.mem
 *.vtk
+*.png
 *.jls
 *.jld
 *.sublime-workspace

@@ -13,8 +13,8 @@ N_elem2 = 3*(2^r)
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "q"
-skew = 0.
-bend = 0.5
+skew = 0.5
+bend = 0.
 # lam_order = 2
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
@@ -225,8 +225,8 @@ println(u_i.values)
 
 tot_l2 = sqrt(sum(l2err1.values.^2) + sum(l2err2.values.^2))
 
-# exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
-exact_lagrange(x,y) = -2*x/sqrt(1+(bend*(y-0.5))^2) + 4*y*(bend*(y-0.5))/sqrt(1+(bend*(y-0.5))^2)
+exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
+# exact_lagrange(x,y) = -2*x/sqrt(1+(bend*(y-0.5))^2) + 4*y*(bend*(y-0.5))/sqrt(1+(bend*(y-0.5))^2)
 
 
 lag_err = L2_err(femm_i, geom_i, u_i, exact_lagrange)
