@@ -7,10 +7,10 @@ using LinearAlgebra
 using Plots
 include("utilities.jl")
 
-# r =3
+r =0
 println(r)
-N_elem1 = 8*(2^r)
-N_elem2 = 12*(2^r)
+N_elem1 = 10*(2^r)
+N_elem2 = 15*(2^r)
 N_elem_i = min(N_elem1, N_elem2)
 # N_elem_i = (2^r)*2
 
@@ -18,7 +18,7 @@ left_m = "q"
 right_m = "t"
 skew = 0.5
 bend = 0.0
-# lam_order = 0
+lam_order = 0
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 
