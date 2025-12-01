@@ -56,6 +56,7 @@ geom_all = []
 dbc_nodes_all = []
 material_all = []
 bfes_all = []
+
 for i in 1:2
     for j in 1:2
         n = nelems[2*(i-1)+j]
@@ -138,6 +139,9 @@ fens_i = [fensi_1; fensi_2]
 fes_i = [fesi_1; fesi_2]
 u_i = []
 F_lam = []
+femm_i = []
+geom_i=[]
+
 for j in 1:2
     if lam_order == 0
         push!(u_i, ElementalField(zeros(count(fes_i[j]), 1))) # Lagrange multipliers field
@@ -145,6 +149,10 @@ for j in 1:2
         push!(u_i, NodalField(zeros(size(fens_i[j].xyz, 1), 1))) # Lagrange multipliers field
     end
     numberdofs!(u_i[j])
+    femm = FEMMHeatDiff(IntegDomain(fes_i[j], GaussRule(1,4)), MatHeatDiff(reshape([1.0], 1, 1)))
+    geom = NodalField(fens_i[j].xyz)
+    push!(femm_i, femm)
+    push!(geom_i, geom)
     push!(F_lam, zeros(nfreedofs(u_i[j])))
 end
 

@@ -7,18 +7,17 @@ using LinearAlgebra
 using Plots
 include("utilities.jl")
 
-println(r)
-N_elem1 = 6*(2^r)
-N_elem2 = 9*(2^r)
+# r = 0
+N_elem1 = 2*(2^r)
+N_elem2 = 3*(2^r)
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
-right_m = "t"
+right_m = "q"
 skew = 0.5
-bend = 0.0
-# lam_order = 1
+bend = 0.
+# lam_order = 2
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
-
 Q = -6.0
 sol(x,y) = 1 .+ x.^2 + 2*y.^2
 q(x,y) = 4*y
@@ -36,12 +35,12 @@ end
 width1 = 0.5
 height1 = 1.0
 if left_m == "t"
-    fens1, fes1 = T3block(width1, height1, floor(Int, N_elem1/2), N_elem1)
-    Rule1 = TriRule(3)
+    fens1, fes1 = T6block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    Rule1 = TriRule(9)
 else
     xs1 = collect(linearspace(0.0, width1, floor(Int, N_elem1/2)+1))
     ys1 = collect(linearspace(0.0, height1, N_elem1+1))
-    fens1, fes1 = Q4blockx(xs1, ys1)
+    fens1, fes1 = Q9blockx(xs1, ys1)
     Rule1 = GaussRule(2,4)
 end
 
@@ -56,16 +55,15 @@ edge_fes1 = subset(boundaryfes1, selectelem(fens1, boundaryfes1,  box=[width1,wi
 width2 = 0.5
 height2 = 1.0
 if right_m == "t"
-    fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
-    Rule2 = TriRule(3)
+    fens2, fes2 = T6block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    Rule2 = TriRule(9)
     fens2.xyz[:, 1] .+= 0.5
 else
     xs2 = collect(linearspace(0.5 ,0.5+ width2, floor(Int, N_elem2/2)+1))
     ys2 = collect(linearspace(0.0, height2, N_elem2+1))
-    fens2, fes2 = Q4blockx(xs2, ys2)
+    fens2, fes2 = Q9blockx(xs2, ys2)
     Rule2 = GaussRule(2,4)
 end
-# shift the second mesh to the right by 1.0
 
 
 boundaryfes2 = meshboundary(fes2)
@@ -177,7 +175,7 @@ else
     u_i  = NodalField(zeros(size(fens_i.xyz, 1), 1)) # Lagrange multipliers field
 end
 numberdofs!(u_i)
-femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,4)), MatHeatDiff(reshape([1.0], 1, 1)))
+femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), MatHeatDiff(reshape([1.0], 1, 1)))
 
 
 D1,Pi_NC1,Pi_phi1 = build_D_matrix(fens_u1, fes_u1, fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
@@ -222,13 +220,14 @@ vtkexportmesh(
     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
 )
 # println(u_i.values)
-# plot(geom_i.values[:,1], u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
+# # plot(geom_i.values[:,1], u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
 # plot( u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
+
 tot_l2 = sqrt(sum(l2err1.values.^2) + sum(l2err2.values.^2))
 
 exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
+# exact_lagrange(x,y) = -2*x/sqrt(1+(bend*(y-0.5))^2) + 4*y*(bend*(y-0.5))/sqrt(1+(bend*(y-0.5))^2)
+
 
 lag_err = L2_err(femm_i, geom_i, u_i, exact_lagrange)
 tot_lag_err = sqrt(sum(lag_err.values.^2))
-# println("Total L2 error in solution: $tot_l2")
-# println("Total L2 error in Lagrange Multiplier: $tot_lag_err")
