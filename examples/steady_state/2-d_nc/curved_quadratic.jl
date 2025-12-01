@@ -7,15 +7,15 @@ using LinearAlgebra
 using Plots
 include("utilities.jl")
 
-# r = 0
+r = 0
 N_elem1 = 2*(2^r)
 N_elem2 = 3*(2^r)
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "q"
-skew = 0.
+skew = 0.0
 bend = 0.5
-# lam_order = 2
+lam_order = 2
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 Q = -6.0
@@ -209,12 +209,12 @@ l2err1 = L2_err(femm1, geom1, T1, sol)
 l2err2 = L2_err(femm2, geom2, T2, sol)
 
 
-File1 = "quadratic_test_left.vtk"
+File1 = "curved_quadratic_test_left.vtk"
 vtkexportmesh(
     File1,
     fens1, fes1,scalars = [("Temperature", T1.values), ("Err", l2err1.values)]
 )
-File2 = "quadratic_test_right.vtk"
+File2 = "curved_quadratic_test_right.vtk"
 vtkexportmesh(
     File2,
     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
@@ -225,8 +225,8 @@ println(u_i.values)
 
 tot_l2 = sqrt(sum(l2err1.values.^2) + sum(l2err2.values.^2))
 
-# exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
-exact_lagrange(x,y) = -2*x/sqrt(1+(bend*(y-0.5))^2) + 4*y*(bend*(y-0.5))/sqrt(1+(bend*(y-0.5))^2)
+exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
+# exact_lagrange(x,y) = -2*x/sqrt(1+(bend*(y-0.5))^2) + 4*y*(bend*(y-0.5))/sqrt(1+(bend*(y-0.5))^2)
 
 
 lag_err = L2_err(femm_i, geom_i, u_i, exact_lagrange)

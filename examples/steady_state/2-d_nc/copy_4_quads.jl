@@ -6,7 +6,8 @@ using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
 include("utilities.jl")
 
-lam_order = 0
+lam_order = 1
+r = 3
 
 function f(x,y)
     return 1+x.^2 + 2*y.^2
@@ -36,11 +37,14 @@ function Q!(forceout, XYZ, tangents, feid, qpid)
     return forceout
 end
 boundary_boxes = [
-    [0.0,0.0, 0.0,1.0], # left
+    # [0.0,0.0, 0.0,1.0], # left
     [1.0,1.0, 0.0,1.0], # right
     [0.0,1.0, 1.0,1.0], # top
-    [0.0,1.0, 0.0,0.0], # bottom
-] 
+    # [0.0,1.0, 0.0,0.0], # bottom
+]
+dbc_box = [0.0,0.0, 0.0,0.0] 
+firight = ForceIntensity(Float64[2.0])
+fitop = ForceIntensity(Float64[4.0])
 
 ctr = 1
 # r = 5
@@ -55,7 +59,6 @@ geom_all = []
 dbc_nodes_all = []
 material_all = []
 bfes_all = []
-
 for i in 1:2
     for j in 1:2
         n = nelems[2*(i-1)+j]
@@ -67,11 +70,11 @@ for i in 1:2
         geom_local = NodalField(fens_local.xyz)
         T_local = NodalField(zeros(size(fens_local.xyz, 1), 1)) # displacement field
 
-        dbc_nodes_local = []
-        for box in boundary_boxes
-            nodes_in_box = selectnode(fens_local; box=box, inflate=1e-8)
-            append!(dbc_nodes_local, nodes_in_box)
-        end
+        dbc_nodes_local = selectnode(fens_local; box=dbc_box, inflate=1e-8)
+        # for box in boundary_boxes
+        #     nodes_in_box = selectnode(fens_local; box=box, inflate=1e-8)
+        #     append!(dbc_nodes_local, nodes_in_box)
+        # end
 
         sort!(unique!(dbc_nodes_local))
         for i_ in dbc_nodes_local
@@ -90,7 +93,20 @@ for i in 1:2
 
         fis_local = ForceIntensity(Float64,1, Q!)
         F_local = distribloads(femm_local, geom_local, T_local, fis_local, 2)
+        for i in 1:2
+            box = boundary_boxes[i]
+            lbox = selectelem(fens_local, bfes_local, box = box, inflate=1e-8)
+            elfemm = FEMMBase(IntegDomain(subset(bfes_local, lbox), GaussRule(1,2)))
+            if i==1
+                F_local += distribloads(elfemm, geom_local, T_local, firight, 2)
+            elseif i==2
+                F_local += distribloads(elfemm, geom_local, T_local, fitop, 2)
+            end
+        end
+
         F_ff_local = vector_blocked(F_local, nfreedofs(T_local))[:f] - K_fd_local * gathersysvec(T_local, :d)
+        
+
 
         push!(fes_all, fes_local)
         push!(fens_all, fens_local)
@@ -138,9 +154,8 @@ fens_i = [fensi_1; fensi_2]
 fes_i = [fesi_1; fesi_2]
 u_i = []
 F_lam = []
+geom_i = []
 femm_i = []
-geom_i=[]
-
 for j in 1:2
     if lam_order == 0
         push!(u_i, ElementalField(zeros(count(fes_i[j]), 1))) # Lagrange multipliers field
@@ -148,11 +163,7 @@ for j in 1:2
         push!(u_i, NodalField(zeros(size(fens_i[j].xyz, 1), 1))) # Lagrange multipliers field
     end
     numberdofs!(u_i[j])
-    femm = FEMMHeatDiff(IntegDomain(fes_i[j], GaussRule(1,4)), MatHeatDiff(reshape([1.0], 1, 1)))
-    geom = NodalField(fens_i[j].xyz)
-    push!(femm_i, femm)
-    push!(geom_i, geom)
-    femm = FEMMHeatDiff(IntegDomain(fes_i[j], GaussRule(1,4)), MatHeatDiff(reshape([1.0], 1, 1)))
+    femm = FEMMHeatDiff(IntegDomain(fes_i[j], GaussRule(1,2)), MatHeatDiff(reshape([1.0], 1, 1)))
     geom = NodalField(fens_i[j].xyz)
     push!(femm_i, femm)
     push!(geom_i, geom)
@@ -209,9 +220,11 @@ end
 T_l2 = sqrt(T_l2sq)
 
 l_l2sq = 0.0
+lam_err = []
 for j in 1:2
     global l_l2sq
     err =L2_err(femm_i[j], geom_i[j], u_i[j], exact_lam[j])
+    push!(lam_err, err)
     l_l2sq += sum(err.values.^2)
 end
 l_l2 = sqrt(l_l2sq)

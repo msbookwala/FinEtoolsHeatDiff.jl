@@ -7,15 +7,18 @@ using LinearAlgebra
 using Plots
 include("utilities.jl")
 
+r =0
 println(r)
 N_elem1 = 6*(2^r)
 N_elem2 = 9*(2^r)
 N_elem_i = min(N_elem1, N_elem2)
+# N_elem_i = (2^r)*2
+
 left_m = "q"
 right_m = "t"
 skew = 0.5
 bend = 0.0
-# lam_order = 1
+lam_order = 0
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 
@@ -230,5 +233,5 @@ exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
 
 lag_err = L2_err(femm_i, geom_i, u_i, exact_lagrange)
 tot_lag_err = sqrt(sum(lag_err.values.^2))
-# println("Total L2 error in solution: $tot_l2")
-# println("Total L2 error in Lagrange Multiplier: $tot_lag_err")
+println("Total L2 error in solution: $tot_l2")
+println("Total L2 error in Lagrange Multiplier: $tot_lag_err")

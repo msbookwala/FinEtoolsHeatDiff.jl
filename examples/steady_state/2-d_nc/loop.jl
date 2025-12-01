@@ -67,7 +67,7 @@ savefig("QuadRefinement.pdf")
 # for a in 0:n
 #     l2 = []
 #     lag = []
-#     for b in [0,2]
+#     for b in [0]
 #         global r = a
 #         global lam_order = b
 #         include("curved_quadratic.jl")
