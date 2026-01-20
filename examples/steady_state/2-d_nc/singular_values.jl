@@ -1,3 +1,78 @@
+using SparseArrays
+using LinearAlgebra
+using KrylovKit
+using Plots
+
+# ============================================================
+# utilities
+# ============================================================
+
+function drop_zero_cols(D::SparseMatrixCSC)
+    colnnz = diff(D.colptr)
+    keep = findall(>(0), colnnz)
+    return D[:, keep], keep
+end
+
+function smallest_positive_eig(T; howmany=10, reltol=1e-12)
+    evals, _, _ = eigsolve(T, howmany, :SR)
+    ev = sort(real.(evals))
+    tol = reltol * maximum(abs.(ev))
+    evp = filter(x -> x > tol, ev)
+    return isempty(evp) ? NaN : evp[1]
+end
+
+# ============================================================
+# P1 mass matrix on 1D interface
+# ============================================================
+
+function p1_mass_matrix_1d(fens, fes)
+    nn = size(fens.xyz, 1)
+    M = spzeros(nn, nn)
+
+    for conn in fes.conn
+        # conn is a Tuple{Int,Int}
+        n1, n2 = conn
+
+        y1 = fens.xyz[n1, 2]
+        y2 = fens.xyz[n2, 2]
+        h  = abs(y2 - y1)
+
+        # local P1 mass matrix on a segment
+        Me = (h / 6.0) * [2.0 1.0;
+                          1.0 2.0]
+
+        # assemble
+        M[n1, n1] += Me[1,1]
+        M[n1, n2] += Me[1,2]
+        M[n2, n1] += Me[2,1]
+        M[n2, n2] += Me[2,2]
+    end
+
+    return M
+end
+
+
+# ============================================================
+# parameters
+# ============================================================
+
+lam_order = 1
+mults = 0:5
+
+βvals = Float64[]
+hvals = Float64[]
+
+# ============================================================
+# refinement loop
+# ============================================================
+# ------------------------------------------------------------
+# refinement loop
+# ------------------------------------------------------------
+
+for mult in mults
+    println("\n===== mult = $mult =====")
+
+
 using FinEtools
 using FinEtools.AlgoBaseModule: solve_blocked!, matrix_blocked, vector_blocked
 using FinEtoolsHeatDiff
@@ -5,6 +80,8 @@ using FinEtoolsHeatDiff.AlgoHeatDiffModule
 using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
 using KrylovKit
+using Arpack
+using SparseArrays
 include("utilities.jl")
 
 N_elem1 = 2 * 2^mult
@@ -13,7 +90,7 @@ N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "t"
 skew = 0.
-lam_order = 0
+lam_order = 1
 
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
@@ -39,11 +116,11 @@ fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 0.5)
 geom1 = NodalField(fens1.xyz)
 T1 = NodalField(zeros(size(fens1.xyz, 1), 1)) # displacement field
 
-# box1 = [0.0,0.0,0.0,0.0]
-# dbc_nodes1 = selectnode(fens1; box=box1, inflate=1e-8)
-# for i in dbc_nodes1
-#     setebc!(T1, [i], 1, 0.0)
-# end
+box1 = [0.0,0.0,0.0,0.0]
+dbc_nodes1 = selectnode(fens1; box=box1, inflate=1e-8)
+for i in dbc_nodes1
+    setebc!(T1, [i], 1, -1.0)
+end
 
 applyebc!(T1)
 numberdofs!(T1)
@@ -121,41 +198,79 @@ femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), material)
 D1,_,_ = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
 D2,_,_ = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
 
-# D1 = D1[:, setdiff(1:count(fens1), dbc_nodes1)]
+D1 = D1[:, setdiff(1:count(fens1), dbc_nodes1)]
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
 
 A = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2))    D1';
      zeros(size(K2_ff,1), size(K1_ff,2))     K2_ff          -D2';
      D1               -D2               zeros(size(D1,1), size(D1,1))]
-# A = cholesky(A)
-# show(Matrix(A))
-B = vcat(F1_ff, F2_ff, zeros(size(D1,1)))
-X = A \ B
 
-scattersysvec!(T1, X[1:size(K1_ff,1)])
-scattersysvec!(T2, X[size(K1_ff,1)+1 : size(K1_ff,1)+size(K2_ff,1)])
-scattersysvec!(u_i, X[size(K1_ff,1)+size(K2_ff,1)+1 : end])
 
-sol(x,y) = x-1
-err1 = L2_err(femm1, geom1, T1, sol)
-err2 = L2_err(femm2, geom2, T2, sol)
+    D1s = sparse(D1)
+    D2s = sparse(D2)
 
-File1 = "patch_test_left.vtk"
-vtkexportmesh(
-    File1,
-    fens1, fes1,scalars = [("Temperature", T1.values), ("Err", err1.values)]
+    D1r, keep1 = drop_zero_cols(D1s)
+    D2r, keep2 = drop_zero_cols(D2s)
+
+    B = [D1s  -D2s]   # constraint operator
+
+    # reduced primal stiffness
+    K1s = sparse(K1_ff)
+    K2s = sparse(K2_ff)
+
+    # K1r = K1s[keep1, keep1]
+    # K2r = K2s[keep2, keep2]
+
+    K = blockdiag(K1s, K2s)
+    Kchol = cholesky(Symmetric(K))
+
+    # --------------------------------------------------------
+    # multiplier mass matrix (P1 on 1D mesh)
+    # --------------------------------------------------------
+
+    Mλ = mass(femm_i, geom_i, u_i)
+    Mλchol = cholesky(Symmetric(Mλ))
+
+    # --------------------------------------------------------
+    # inf-sup operator:  Mλ^{-1} B K^{-1} B'
+    # --------------------------------------------------------
+
+    function apply_T(y)
+        tmp = B' * y
+        tmp = Kchol \ tmp
+        tmp = B * tmp
+        return Mλchol \ (Mλchol' \ tmp)
+    end
+
+nλ = size(B, 1)
+
+λs, _, _ = eigsolve(apply_T, nλ, 12, :SR)
+λs = sort(real.(λs))
+
+tol = 1e-12 * maximum(abs.(λs))
+λpos = filter(x -> x > tol, λs)
+
+βh = sqrt(isempty(λpos) ? NaN : λpos[1])
+
+
+    println("β_h ≈ $βh")
+
+    push!(βvals, βh)
+    push!(hvals, 2.0^(-mult))
+end
+
+# ============================================================
+# plot
+# ============================================================
+
+plot(
+    hvals, βvals,
+    xscale = :log10,
+    yscale = :log10,
+    marker = :circle,
+    xlabel = "h",
+    ylabel = "β_h (discrete inf-sup constant)",
+    title  = "LBB verification (lam_order = 1, P1 mortar)",
+    grid   = true,
+    legend = false
 )
-File2 = "patch_test_right.vtk"
-vtkexportmesh(
-    File2,
-    fens2, fes2,scalars = [("Temperature", T2.values), ("Err", err2.values)]
-)
-println(u_i.values)
-# A1 = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2)) ;
-#      zeros(size(K2_ff,1), size(K1_ff,2))     K2_ff   ]
-# A2 = [D1';
-#      -D2']
-# svals1,_,_ = svdsolve(D1, 2, which=:SR)
-# svals2,_,_ = svdsolve(D2, 2, which=:SR)
-# println("Min singular value of D1 matrix: ", svals1[1])
-# println("Min singular value of D2 matrix: ", svals2[1])
