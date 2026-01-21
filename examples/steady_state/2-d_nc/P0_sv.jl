@@ -3,28 +3,8 @@ using LinearAlgebra
 using KrylovKit
 using Plots
 
-# ============================================================
-# utilities
-# ============================================================
 
-function drop_zero_cols(D::SparseMatrixCSC)
-    colnnz = diff(D.colptr)
-    keep = findall(>(0), colnnz)
-    return D[:, keep], keep
-end
 
-# smallest positive eigenvalue via KrylovKit
-function smallest_positive_eig(apply_T, n; howmany=10, reltol=1e-12)
-    evals, _, _ = eigsolve(apply_T, n, howmany, :SR)
-    ev = sort(real.(evals))
-    tol = reltol * maximum(abs.(ev))
-    evp = filter(x -> x > tol, ev)
-    return isempty(evp) ? NaN : evp[1]
-end
-
-# ============================================================
-# P0 mass matrix on 1D interface (elementwise constants)
-# ============================================================
 
 function p0_mass_matrix_1d(fens, fes)
     ne = count(fes)
@@ -46,9 +26,9 @@ end
 # ============================================================
 
 lam_order = 0
-mults = 1:10
+mults = 1:9
 
-βvals = Float64[]
+betavals = Float64[]
 hvals = Float64[]
 
 # ============================================================
@@ -58,11 +38,6 @@ hvals = Float64[]
 for mult in mults
     println("\n===== mult = $mult =====")
 
-    # --------------------------------------------------------
-    # YOUR EXISTING ASSEMBLY CODE (UNCHANGED)
-    # must define:
-    #   K1_ff, K2_ff, D1, D2, fens_i, fes_i
-    # --------------------------------------------------------
 
 using FinEtools
 using FinEtools.AlgoBaseModule: solve_blocked!, matrix_blocked, vector_blocked
@@ -195,80 +170,48 @@ D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
 A = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2))    D1';
      zeros(size(K2_ff,1), size(K1_ff,2))     K2_ff          -D2';
      D1               -D2               zeros(size(D1,1), size(D1,1))]
-    # (your full mesh + FEM assembly lives here)
-    # --------------------------------------------------------
 
-    # --------------------------------------------------------
-    # build reduced operators
-    # --------------------------------------------------------
 
     D1s = sparse(D1)
     D2s = sparse(D2)
 
-    D1r, keep1 = drop_zero_cols(D1s)
-    D2r, keep2 = drop_zero_cols(D2s)
-
-    B = [D1r  -D2r]
+    B = [D1s  -D2s]
 
     # reduced primal stiffness
     K1s = sparse(K1_ff)
     K2s = sparse(K2_ff)
-
-    K1r = K1s[keep1, keep1]
-    K2r = K2s[keep2, keep2]
-
-    K = blockdiag(K1r, K2r)
-    Kchol = cholesky(Symmetric(K))
-
-
-    # K = blockdiag(K1_ff, K2_ff)
-    # mat = Matrix([D1 -D2])*inv(Matrix(K))*Matrix([D1 -D2])'
     
-    # s= eigs(mat, nev=1, which=:SM)
-    # print(s[1][1])
 
-    # continue
+    h = 1.0 / N_elem_i
+    M_lg = p0_mass_matrix_1d(fens_i, fes_i)
+    K = blockdiag(K1s, K2s) 
 
+    LM = cholesky(Symmetric(Matrix(h*M_lg))).L
+    LK = cholesky(Symmetric(Matrix(K))).L
+    C  =  LM \ (Matrix(B) / LK')    
+    s = svdvals(C)
+    tol = 1e-14                
+    spos = filter(>(tol), s)
+    beta = isempty(spos) ? 0.0 : minimum(spos)
 
-    # --------------------------------------------------------
-    # multiplier mass (P0)
-    # --------------------------------------------------------
+    push!(betavals, beta)
 
-    Mλ = p0_mass_matrix_1d(fens_i, fes_i)
-    Mλchol = cholesky(Symmetric(Mλ))
-
-    # --------------------------------------------------------
-    # inf-sup operator:  Mλ^{-1} B K^{-1} B'
-    # --------------------------------------------------------
-
-    function apply_T(y)
-        tmp = B' * y
-        tmp = Kchol \ tmp
-        tmp = B * tmp
-        return Mλchol \ (Mλchol' \ tmp)
-    end
-
-    λmin = smallest_positive_eig(apply_T, size(B,1); howmany=12)
-    βh = sqrt(λmin)
-
-    println("β_h ≈ $βh")
-
-    push!(βvals, βh)
-    push!(hvals, 2.0^(-mult))
+    println("beta_h= $beta")
+    push!(hvals, h)
 end
 
 # ============================================================
 # plot
 # ============================================================
 
-# plot(
-#     hvals, βvals,
-#     xscale = :log10,
-#     yscale = :log10,
-#     marker = :circle,
-#     xlabel = "h",
-#     ylabel = "β_h (discrete inf–sup constant)",
-#     title  = "LBB verification (lam_order = 0, P0 mortar)",
-#     grid   = true,
-#     legend = false
-# )
+plot(
+    hvals, betavals,
+    xscale = :log10,
+    yscale = :log10,
+    marker = :circle,
+    xlabel = "h",
+    ylabel = "beta_h (discrete inf–sup constant)",
+    title  = "LBB verification (lam_order = 0, P0 mortar)",
+    grid   = true,
+    legend = false
+)

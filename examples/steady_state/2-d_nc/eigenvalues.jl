@@ -1,21 +1,14 @@
 
+using Plots
 
-# ============================================================
-# parameters
-# ============================================================
 
 lam_order = 1
 mults = 0:5
 
-βvals = Float64[]
+betavals = Float64[]
 hvals = Float64[]
 
-# ============================================================
-# refinement loop
-# ============================================================
-# ------------------------------------------------------------
-# refinement loop
-# ------------------------------------------------------------
+
 
 for mult in mults
     println("\n===== mult = $mult =====")
@@ -32,8 +25,8 @@ using Arpack
 using SparseArrays
 include("utilities.jl")
 
-N_elem1 = 2 * 2^mult
-N_elem2 = 3 * 2^mult
+N_elem1 = 2 * ceil(Int, 2^mult)
+N_elem2 = 3 * ceil(Int, 2^mult)
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "t"
@@ -165,35 +158,32 @@ A = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2))    D1';
     K1s = sparse(K1_ff)
     K2s = sparse(K2_ff)
 
-    # K1r = K1s[keep1, keep1]
-    # K2r = K2s[keep2, keep2]
+
 
     K = blockdiag(K1s, K2s)
 
 
-    Mλ = mass(femm_i, geom_i, u_i)
+    M_lg = mass(femm_i, geom_i, u_i)
+    K = blockdiag(K1s, K2s)
 
 
-nλ = size(B, 1)
-
-F = svd(sqrt(h)* (sqrt(Matrix(Mλ))*Matrix(B)*sqrt(Matrix(K))))
-evals = F.S
-print(minimum(evals))
-# push!(βvals, minimum(evals))
 
 
-# λs, _, _ = eigsolve(apply_T, nλ, 12, :SR)
-# λs = sort(real.(λs))
 
-# tol = 1e-12 * maximum(abs.(λs))
-# λpos = filter(x -> x > tol, λs)
+LM = cholesky(Symmetric(Matrix(h*M_lg))).L
+LK = cholesky(Symmetric(Matrix(K))).L
+C  = LM \ (Matrix(B) / LK')    
+C  = sqrt(h)*sqrt(Matrix(M_lg)) \ (Matrix(B) / sqrt(Matrix(K)))  # scaled constraint operator
+s = svdvals(C)                    # sorted descending
+tol = 1e-12 * maximum(s)
+spos = filter(x -> x > tol, s)
+beta = isempty(spos) ? 0.0 : minimum(spos)
 
-# βh = sqrt(isempty(λpos) ? NaN : λpos[1])
+    println("beta_h = $beta")
+
+push!(betavals, beta)
 
 
-#     println("β_h ≈ $βh")
-
-#     push!(βvals, βh)
     push!(hvals, h)
 end
 
@@ -201,14 +191,14 @@ end
 # plot
 # ============================================================
 
-# plot(
-#     hvals, βvals,
-#     xscale = :log10,
-#     yscale = :log10,
-#     marker = :circle,
-#     xlabel = "h",
-#     ylabel = "β_h (discrete inf–sup constant)",
-#     title  = "LBB verification (lam_order = 1, P1 mortar)",
-#     grid   = true,
-#     legend = false
-# )
+plot(
+    hvals, betavals,
+    xscale = :log10,
+    yscale = :log10,
+    marker = :circle,
+    xlabel = "h",
+    ylabel = "beta_h (discrete inf–sup constant)",
+    title  = "LBB verification (lam_order = 1, P1 mortar)",
+    grid   = true,
+    legend = false
+)
