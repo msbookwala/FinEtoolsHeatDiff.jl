@@ -1,39 +1,14 @@
-using SparseArrays
-using LinearAlgebra
-using KrylovKit
+
 using Plots
 
 
-
-
-function p0_mass_matrix_1d(fens, fes)
-    ne = count(fes)
-    m = zeros(ne)
-
-    for (e, conn) in enumerate(fes.conn)
-        # conn is a Tuple{Int,Int}
-        n1, n2 = conn
-        y1 = fens.xyz[n1, 2]
-        y2 = fens.xyz[n2, 2]
-        m[e] = abs(y2 - y1)   # element length
-    end
-
-    return spdiagm(0 => m)
-end
-
-# ============================================================
-# parameters
-# ============================================================
-
-lam_order = 0
-mults = 1:9
+lam_order = 1
+mults = 0:5
 
 betavals = Float64[]
 hvals = Float64[]
 
-# ============================================================
-# refinement loop
-# ============================================================
+
 
 for mult in mults
     println("\n===== mult = $mult =====")
@@ -50,14 +25,14 @@ using Arpack
 using SparseArrays
 include("utilities.jl")
 
-N_elem1 = 2 * ceil(Int, 1.5^mult)
-N_elem2 = 3 * ceil(Int, 1.5^mult)
+N_elem1 = 2 * ceil(Int, 2^mult)
+N_elem2 = 3 * ceil(Int, 2^mult)
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "t"
 skew = 0.
-# lam_order = 1
-
+lam_order = 1
+h = 1.0 / N_elem_i
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 
@@ -175,34 +150,44 @@ A = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2))    D1';
     D1s = sparse(D1)
     D2s = sparse(D2)
 
-    B = [D1s  -D2s]
+
+
+    B = [D1s  -D2s]   # constraint operator
 
     # reduced primal stiffness
     K1s = sparse(K1_ff)
     K2s = sparse(K2_ff)
 
-    M1 = mass(femm1, geom1, T1)
-    M1_ff = matrix_blocked(M1, nfreedofs(T1), nfreedofs(T1))[:ff]
-    M2 = mass(femm2, geom2, T2)
-    M2_ff = matrix_blocked(M2, nfreedofs(T2), nfreedofs(T2))[:ff]
-    
 
-    h = 1.0 / N_elem_i
-    M_lg = p0_mass_matrix_1d(fens_i, fes_i)
+
     K = blockdiag(K1s, K2s)
-    M_sd = blockdiag(M1_ff, M2_ff) 
 
-    LM = cholesky(Symmetric(Matrix(h*M_lg))).L
-    LK = cholesky(Symmetric(Matrix(K + M_sd + B'*B/h))).L
-    C  =  LM \ (Matrix(B) / LK')    
-    s = svdvals(C)
-    tol = 1e-14                
-    spos = filter(>(tol), s)
-    beta = isempty(spos) ? 0.0 : minimum(spos)
 
-    push!(betavals, beta)
+    M_lg = mass(femm_i, geom_i, u_i)
+    K = blockdiag(K1s, K2s)
 
-    println("beta_h= $beta")
+
+
+
+M1 = mass(femm1, geom1, T1)
+M1_ff = matrix_blocked(M1, nfreedofs(T1), nfreedofs(T1))[:ff]
+M2 = mass(femm2, geom2, T2)
+M2_ff = matrix_blocked(M2, nfreedofs(T2), nfreedofs(T2))[:ff]
+M_sd = blockdiag(M1_ff, M2_ff) 
+LM = cholesky(Symmetric(Matrix(h*M_lg))).L
+LK = cholesky(Symmetric(Matrix(K + M_sd+ B'*B/h))).L
+C  = LM \ (Matrix(B) / LK')    
+C  = sqrt(h)*sqrt(Matrix(M_lg)) \ (Matrix(B) / sqrt(Matrix(K)))  # scaled constraint operator
+s = svdvals(C)                    # sorted descending
+tol = 1e-12 * maximum(s)
+spos = filter(x -> x > tol, s)
+beta = isempty(spos) ? 0.0 : minimum(spos)
+
+    println("beta_h = $beta")
+
+push!(betavals, beta)
+
+
     push!(hvals, h)
 end
 
@@ -217,7 +202,7 @@ plot(
     marker = :circle,
     xlabel = "h",
     ylabel = "beta_h (discrete inf–sup constant)",
-    title  = "LBB verification (lam_order = 0, P0 mortar)",
+    title  = "LBB verification (lam_order = 1, P1 mortar)",
     grid   = true,
     legend = false
 )
