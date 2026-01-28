@@ -26,7 +26,7 @@ end
 # ============================================================
 
 lam_order = 0
-mults = 1:9
+mults =0:6
 
 betavals = Float64[]
 hvals = Float64[]
@@ -50,8 +50,8 @@ using Arpack
 using SparseArrays
 include("utilities.jl")
 
-N_elem1 = 2 * ceil(Int, 1.5^mult)
-N_elem2 = 3 * ceil(Int, 1.5^mult)
+N_elem1 = 2 * ceil(Int, 2^mult)
+N_elem2 = 3 * ceil(Int, 2^mult)
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "t"
@@ -189,6 +189,9 @@ A = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2))    D1';
     LM = cholesky(Symmetric(Matrix(h*M_lg))).L
     LK = cholesky(Symmetric(Matrix(K))).L
     C  =  LM \ (Matrix(B) / LK')    
+
+    # C  = Matrix(M_lg) \ (Matrix(B) / Matrix(K))*Matrix(B)'   
+     
     s = svdvals(C)
     tol = 1e-14                
     spos = filter(>(tol), s)
@@ -203,15 +206,19 @@ end
 # ============================================================
 # plot
 # ============================================================
+using LaTeXStrings
+default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
 
 plot(
-    hvals, betavals,
-    xscale = :log10,
+    -log.(hvals), betavals,
+    # xscale = :log10,
     yscale = :log10,
     marker = :circle,
-    xlabel = "h",
-    ylabel = "beta_h (discrete inf–sup constant)",
-    title  = "LBB verification (lam_order = 0, P0 mortar)",
+    xlabel = L"Refinement factor $r$",
+    ylabel = L"$\sigma_{min}$: Lowest Singular Value of $\mathbf{G}$",
+    title  = "LBB verification: P0 Lagrange multipliers",
     grid   = true,
-    legend = false
+    legend = false,
+    # xflip = true
 )
+savefig("LBB.pdf")
