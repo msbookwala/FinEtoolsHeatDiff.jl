@@ -7,13 +7,13 @@ using LinearAlgebra
 include("utilities.jl")
 
 
-N_elem1 = 2
-N_elem2 = 4
-N_elem_i = max(N_elem1, N_elem2)
-left_m = "t"
-right_m = "t"
+N_elem1 = 3
+N_elem2 = 5
+N_elem_i = min(N_elem1, N_elem2)
+left_m = "h"
+right_m = "h"
 skew = 0.
-lam_order = 1
+lam_order = 0
 
 kappa = [1.0 0.0 0.0; 0 1.0 0.0; 0.0 0.0 1.0] 
 material = MatHeatDiff(kappa)
@@ -44,7 +44,7 @@ K1 = conductivity(femm1, geom1, T1)
 K1_ff = matrix_blocked(K1, nfreedofs(T1), nfreedofs(T1))[:ff]
 
 l1 = selectelem(fens1, meshboundary(fes1), box = [0.0,0.0, 0.0,height1, 0.0, depth1], inflate=1e-8)
-el1femm = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1), TriRule(3)))
+el1femm = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1), GaussRule(2,2)))
 fi1 = ForceIntensity(Float64[-1.0])
 F1 = distribloads(el1femm, geom1, T1, fi1, 2)
 F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
@@ -58,8 +58,9 @@ if right_m == "h"
 else
     fens2, fes2 = T4block(width2, height2, depth2, floor(Int, N_elem2), N_elem2, N_elem2)
     Rule2 = TetRule(4)
-    fens2.xyz[:,1] .+= 0.5
+    
 end 
+fens2.xyz[:,1] .+= 0.5
 boundaryfes2 = meshboundary(fes2)
 edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2,  box=[0.5,0.5, 0.0,height2, 0.0, depth2], inflate=1e-8))
 
@@ -79,7 +80,7 @@ femm2 = FEMMHeatDiff(IntegDomain(fes2, Rule2), material)
 K2 = conductivity(femm2, geom2, T2)
 K2_ff = matrix_blocked(K2, nfreedofs(T2), nfreedofs(T2))[:ff]
 l2 = selectelem(fens2, meshboundary(fes2), box = [1.0,1.0, 0.0,height2, 0.0, depth2], inflate=1e-8)
-el2femm = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2), TriRule(3)))
+el2femm = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2), GaussRule(2,2)))
 fi2 = ForceIntensity(Float64[1.0])
 F2 = distribloads(el2femm, geom2, T2, fi2, 2)
 F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
@@ -88,19 +89,23 @@ F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 xs_i = 0.5
 ys_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
 zs_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
-fens_i, fes_i = T3blockx(ys_i, zs_i, :a)
+fens_i, fes_i = Q4blockx(ys_i, zs_i)
 fens_i.xyz = hcat(xs_i*ones(size(fens_i.xyz, 1), 1), fens_i.xyz)
 
 u_i  = NodalField(zeros(size(fens_i.xyz, 1), 1))
+u_i = ElementalField(zeros(count(fes_i), 1))
 femm_i = FEMMHeatDiff(IntegDomain(fes_i, TriRule(9)), material)
 geom_i = NodalField(fens_i.xyz)
 applyebc!(u_i)
 
 numberdofs!(u_i)
 
-M_i =mass(femm_i, geom_i, u_i)
-D1, Pi_NC1, Pi_phi1, M_u1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
-D2, Pi_NC2, Pi_phi2, M_u2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+# M_i =mass(femm_i, geom_i, u_i)
+D1, Pi_NC1, Pi_phi_or_S1, M_u1, fens_u1, fes_u1 =
+    build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order, rectangles=true)
+
+D2, Pi_NC2, Pi_phi_or_S2, M_u2, fens_u2, fes_u2 =
+    build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order, rectangles=true)
 
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
 
@@ -118,12 +123,12 @@ sol(x,y) = x-1
 err1 = L2_err(femm1, geom1, T1, sol)
 err2 = L2_err(femm2, geom2, T2, sol)
 
-File1 = "patch_test_left.vtk"
+File1 = "qqpatch_test_left.vtk"
 vtkexportmesh(
     File1,
     fens1, fes1,scalars = [("Temperature", T1.values), ("Err", err1.values)]
 )
-File2 = "patch_test_right.vtk"
+File2 = "qqpatch_test_right.vtk"
 vtkexportmesh(
     File2,
     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", err2.values)]

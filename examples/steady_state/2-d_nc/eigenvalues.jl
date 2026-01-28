@@ -171,7 +171,7 @@ A = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2))    D1';
 
 
 LM = cholesky(Symmetric(Matrix(h*M_lg))).L
-LK = cholesky(Symmetric(Matrix(K))).L
+LK = cholesky(Symmetric(Matrix(K+ 1/h*B' * M_lg * B))).L
 C  = LM \ (Matrix(B) / LK')    
 C  = sqrt(h)*sqrt(Matrix(M_lg)) \ (Matrix(B) / sqrt(Matrix(K)))  # scaled constraint operator
 s = svdvals(C)                    # sorted descending
