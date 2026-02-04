@@ -210,7 +210,7 @@ using LaTeXStrings
 default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
 
 plot(
-    -log.(hvals), betavals,
+    [0:6], betavals,
     # xscale = :log10,
     yscale = :log10,
     marker = :circle,
