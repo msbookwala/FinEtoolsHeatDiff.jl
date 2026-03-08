@@ -6,8 +6,8 @@ using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
 include("utilities.jl")
 
-# lam_order = 1
-# r = 0
+lam_order = 0
+r = 3
 
 function f(x,y)
     # println("a(x,y)=", a(x,y)  )
@@ -48,7 +48,7 @@ boundary_boxes = [
 ] 
 
 ctr = 1
-# r = 5
+# r = 3
 nelems = [4,1,1,4]*(2^r)
 fes_all = []
 fens_all = []
@@ -216,15 +216,15 @@ l_l2 = sqrt(l_l2sq)
 println("T_l2 = ", T_l2)
 println("l_l2 = ", l_l2)
 
-# for i in 1:4
-#     filename = "Wohlmuth3_Block_$i.vtk"
-#     vtkexportmesh(
-#         filename,
-#         fens_all[i],
-#         fes_all[i];
-#         scalars = [
-#             ("Temperature", T_all[i].values),
-#             ("Err", errs[i].values)
-#         ],
-#     )
-# end
+for i in 1:4
+    filename = "Wohlmuth3_Block_$i.vtk"
+    vtkexportmesh(
+        filename,
+        fens_all[i],
+        fes_all[i];
+        scalars = [
+            ("Temperature", T_all[i].values),
+            ("Err", errs[i].values)
+        ],
+    )
+end
