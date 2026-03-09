@@ -54,6 +54,8 @@ end
 function query_grid(g::Grid, aabb_mn::Vector{Float64}, aabb_mx::Vector{Float64})
     i0 = cell_index(g, aabb_mn)
     i1 = cell_index(g, aabb_mx)
+    print("i0, i1: $i0, $i1")
+
     cand = Int[]
     for i in i0[1]:i1[1], j in i0[2]:i1[2], l in i0[3]:i1[3]
         key = (i,j,l)
@@ -75,7 +77,7 @@ function common_refinement(XA::Matrix{Float64}, connA::Matrix{Int},
                            # TODO: for mixed quad+tri, add vector of vectors
     nA = size(connA,1)
     nB = size(connB,1)
-    gridB = build_grid(XB, connB; h=0.25, pad=0.1)
+    gridB = build_grid(XB, connB; h=0.26, pad=0.0)
 
     parentA = Int[]
     parentB = Int[]
@@ -84,14 +86,18 @@ function common_refinement(XA::Matrix{Float64}, connA::Matrix{Int},
     connU = Array{Int}[]
     node_map = Dict{Vector{Float64},Int}()
     for i in 1:nA
+        count = 0
         ai = connA[i,:]
         aabb_mn, aabb_mx = aabb(XA, ai)
-        pad = 0.1
+        pad = 0
         aabb_mn .-= pad
         aabb_mx .+= pad
         cands = query_grid(gridB, aabb_mn, aabb_mx)
+        # println("aabb_min: $aabb_mn, aabb_mx: $aabb_mx, candidates in B: $cands")
+        # @info "Cands for element $i in A: $(length(cands))"
         for j in cands
-            print("Processing A:$i, B:$j\n")
+            count += 1
+           
             
             bi = connB[j,:]
             ax = XA[connA[i,:], :]
@@ -134,8 +140,9 @@ function common_refinement(XA::Matrix{Float64}, connA::Matrix{Int},
                 end
             end
         end
+        @info "Processed element $i in A with $count intersections"
     end
-    return XU, connU, parentA, parentB
+    return XU, connU, parentA, parentB, gridB
 end
 
 # ###############################################################################
@@ -199,7 +206,7 @@ fens_1.xyz = hcat( fens_1.xyz,zs_1*ones(size(fens_1.xyz, 1), 1))
 ys_2 = collect(linearspace(0.0, 1.0, N_elem_2+1))
 xs_2 = collect(linearspace(0.0, 1.0, N_elem_2+1))
 zs_2 = 0.
-fens_2, fes_2 = T3blockx(xs_2, ys_2, :a)
+fens_2, fes_2 = T3blockx(xs_2, ys_2, :b)
 fens_2.xyz = hcat( fens_2.xyz,zs_2*ones(size(fens_2.xyz, 1), 1))
 
 XA = fens_1.xyz
@@ -209,7 +216,7 @@ connB = stack(fes_2.conn, dims=1)
 
 # error("stop")
 
-XU, connU, parentA, parentB = common_refinement(XA, connA, XB, connB)
+XU, connU, parentA, parentB, gridB = common_refinement(XA, connA, XB, connB)
 XU = stack(XU, dims=1)
 connU = stack(connU, dims=1)
 write_vtk_tri_mesh("meshU", XU, connU, cellfields=Dict("parentA" => parentA, "parentB" => parentB))
