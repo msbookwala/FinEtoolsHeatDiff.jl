@@ -6,7 +6,7 @@ using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
 using KrylovKit
 include("utilities.jl")
-
+mult=1
 N_elem1 = 2 * 2^mult
 N_elem2 = 3 * 2^mult
 N_elem_i = min(N_elem1, N_elem2)
