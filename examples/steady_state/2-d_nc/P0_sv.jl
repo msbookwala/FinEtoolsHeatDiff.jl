@@ -26,7 +26,7 @@ end
 # ============================================================
 
 lam_order = 0
-mults =0:6
+mults =0:5
 
 betavals = Float64[]
 hvals = Float64[]
@@ -192,8 +192,11 @@ A = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2))    D1';
     K = blockdiag(K1s, K2s)
     M_sd = blockdiag(M1_ff, M2_ff) 
 
-    LM = cholesky(Symmetric(Matrix(h*M_lg))).L
-    LK = cholesky(Symmetric(Matrix(K + M_sd + B'*B/h))).L
+    # LM = cholesky(Symmetric(Matrix(h*M_lg))).L
+    # LK = cholesky(Symmetric(Matrix(K + M_sd + B'*B/h))).L
+
+    LM = sqrt(Symmetric(Matrix(h*M_lg)))
+    LK = sqrt(Symmetric(Matrix(K + M_sd)))
     C  =  LM \ (Matrix(B) / LK')    
 
     # C  = Matrix(M_lg) \ (Matrix(B) / Matrix(K))*Matrix(B)'   
