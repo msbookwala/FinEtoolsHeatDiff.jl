@@ -4,26 +4,57 @@ using WriteVTK
 using Meshes
 
 function get_node_id(x::Vector{Float64}, node_map, XU)
-    # key = qkey(x)
     return get!(node_map, round.(x; digits=5)) do
         # create new node
-        # XU = vcat(XU, reshape(x, 1, 3))
         push!(XU, x)
-        # Averts = vcat(Averts, zeros(Int, 1, 3))
-        # Bverts = vcat(Bverts, zeros(Int, 1, 3))
-        # Abary  = vcat(Abary,  zeros(Float64, 1, 3))
-        # Bbary  = vcat(Bbary,  zeros(Float64, 1, 3))
-        # push!(hasA, false)
-        # push!(hasB, false)
-        # print(XU)
         size(XU,1) 
     end
 end
+# ###############################################################################
+struct Grid
+    origin::Vector{Float64}
+    h::Float64
+    cells::Dict{NTuple{3,Int}, Vector{Int}}
+end
+
+cell_index(g::Grid, x::Vector{Float64}) = (
+    floor(Int, (x[1]-g.origin[1])/g.h),
+    floor(Int, (x[2]-g.origin[2])/g.h),
+    floor(Int, (x[3]-g.origin[3])/g.h)
+)
+
+function aabb(X::Matrix{Float64}, poly_conn::Vector{Int})
+    pts = X[poly_conn, :]
+    mn = vec(minimum(pts, dims=1))
+    mx = vec(maximum(pts, dims=1))
+    return mn, mx
+end
+
+function build_grid(X::Matrix{Float64}, Conn::Matrix{Int}; h::Float64, pad::Float64=0.0)
+    mn = vec(minimum(X, dims=1)) .- pad
+    g = Grid(mn, h, Dict{NTuple{3,Int}, Vector{Int}}())
+    for k in 1:size(Conn,1)
+        tri = Conn[k, :]
+        aabb_mn, aabb_mx = aabb(X, tri)
+        aabb_mn .-= pad
+        aabb_mx .+= pad
+        i0 = cell_index(g, aabb_mn)
+        i1 = cell_index(g, aabb_mx)
+        for i in i0[1]:i1[1], j in i0[2]:i1[2], l in i0[3]:i1[3]
+            key = (i,j,l)
+            push!(get!(g.cells, key, Int[]), k)
+        end
+    end
+    return g
+end
 
 
+# ################################################################################
 function common_refinement(XA, connA, XB, connB)
     nA = size(connA,1)
     nB = size(connB,1)
+    gridB = build_grid(XB, connB; h=0.5, pad=0.1)
+
     XU = Vector{Vector{Float64}}()
     connU = Array{Int}[]
     node_map = Dict{Vector{Float64},Int}()
@@ -62,7 +93,7 @@ function common_refinement(XA, connA, XB, connB)
             push!(clips, clipped)
         end
     end
-    return XU, connU
+    return XU, connU, gridB
 end
 
 # ------------------------------------------------------------
@@ -96,4 +127,4 @@ connB = [
     1 5 6 4;
     5 2 3 6
 ]
-XU, connU = common_refinement(XA, connA, XB, connB)
+XU, connU, grid = common_refinement(XA, connA, XB, connB)
