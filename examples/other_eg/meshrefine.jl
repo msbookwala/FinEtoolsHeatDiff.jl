@@ -220,3 +220,8 @@ XU, connU, parentA, parentB, gridB = common_refinement(XA, connA, XB, connB)
 XU = stack(XU, dims=1)
 connU = stack(connU, dims=1)
 write_vtk_tri_mesh("meshU", XU, connU, cellfields=Dict("parentA" => parentA, "parentB" => parentB))
+
+fA = "meshA"
+write_vtk_tri_mesh(fA, XA, connA, cellfields=Dict("id" => 1:size(connA,1)))
+fB = "meshB"
+write_vtk_tri_mesh(fB, XB, connB, cellfields=Dict("id" => 1:size(connB,1)))
