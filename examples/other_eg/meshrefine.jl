@@ -77,7 +77,7 @@ function common_refinement(XA::Matrix{Float64}, connA::Matrix{Int},
                            # TODO: for mixed quad+tri, add vector of vectors
     nA = size(connA,1)
     nB = size(connB,1)
-    gridB = build_grid(XB, connB; h=0.26, pad=0.0)
+    gridB = build_grid(XB, connB; h=0.13, pad=0.0)
 
     parentA = Int[]
     parentB = Int[]
@@ -93,7 +93,7 @@ function common_refinement(XA::Matrix{Float64}, connA::Matrix{Int},
         aabb_mn .-= pad
         aabb_mx .+= pad
         cands = query_grid(gridB, aabb_mn, aabb_mx)
-        # println("aabb_min: $aabb_mn, aabb_mx: $aabb_mx, candidates in B: $cands")
+        # println("aabb_min: $aabb_mn, aabb_mx: $aabb_mx")
         # @info "Cands for element $i in A: $(length(cands))"
         for j in cands
             count += 1
@@ -123,16 +123,16 @@ function common_refinement(XA::Matrix{Float64}, connA::Matrix{Int},
             end
             conn = unique(conn)
             nv = length(conn)
-            if length(conn) < 3
-                continue
+            # if length(conn) < 3
+            #     continue
 
-            elseif length(conn) == 3
-                push!(connU, conn)
-                push!(parentA, i)
-                push!(parentB, j)
+            # elseif length(conn) == 3
+            #     push!(connU, conn)
+            #     push!(parentA, i)
+            #     push!(parentB, j)
 
-            # Triangulation
-            elseif  length(conn)>3
+            # # Triangulation
+            if length(conn)>=3
                 for k in 3:nv
                     push!(connU, [conn[1], conn[k-1], conn[k]])
                     push!(parentA, i)
