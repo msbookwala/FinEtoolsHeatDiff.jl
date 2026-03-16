@@ -4,16 +4,17 @@ using FinEtoolsHeatDiff
 using FinEtoolsHeatDiff.AlgoHeatDiffModule
 using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
-include("utilities.jl")
+include("utilities_old.jl")
+include("meshrefine.jl")
 
 
-N_elem1 = 2
-N_elem2 = 4
-N_elem_i = max(N_elem1, N_elem2)
+N_elem1 = 12
+N_elem2 = 7
+N_elem_i = min(N_elem1, N_elem2)
 left_m = "t"
 right_m = "t"
 skew = 0.
-lam_order = 1
+lam_order = 0
 
 kappa = [1.0 0.0 0.0; 0 1.0 0.0; 0.0 0.0 1.0] 
 material = MatHeatDiff(kappa)
@@ -91,16 +92,25 @@ zs_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
 fens_i, fes_i = T3blockx(ys_i, zs_i, :a)
 fens_i.xyz = hcat(xs_i*ones(size(fens_i.xyz, 1), 1), fens_i.xyz)
 
-u_i  = NodalField(zeros(size(fens_i.xyz, 1), 1))
+if lam_order==1
+    u_i  = NodalField(zeros(size(fens_i.xyz, 1), 1))
+else
+    u_i  = ElementalField(zeros(size(fes_i.conn, 1), 1))
+end
+
 femm_i = FEMMHeatDiff(IntegDomain(fes_i, TriRule(9)), material)
 geom_i = NodalField(fens_i.xyz)
 applyebc!(u_i)
 
 numberdofs!(u_i)
 
-M_i =mass(femm_i, geom_i, u_i)
-D1, Pi_NC1, Pi_phi1, M_u1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
-D2, Pi_NC2, Pi_phi2, M_u2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+# D1, Pi_NC1, Pi_phi1, M_u1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
+# D2, Pi_NC2, Pi_phi2, M_u2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+
+D1, meta1 = common_refinement(fens1, edge_fes1, fens_i, fes_i; order=lam_order, h=0.13)
+D2, meta2 = common_refinement(fens2, edge_fes2, fens_i, fes_i; order=lam_order, h=0.13)
+
+# error()
 
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
 
@@ -128,5 +138,5 @@ vtkexportmesh(
     File2,
     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", err2.values)]
 )
-# println(u_i.values)
+println(u_i.values)
 

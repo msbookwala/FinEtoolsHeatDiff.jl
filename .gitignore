@@ -3,6 +3,7 @@
 *.jl.mem
 *.vtk
 *.png
+*.vtu
 *.jls
 *.jld
 *.sublime-workspace
