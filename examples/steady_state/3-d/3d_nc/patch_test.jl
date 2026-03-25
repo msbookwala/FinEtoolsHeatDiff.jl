@@ -10,7 +10,7 @@ include("meshrefine.jl")
 
 N_elem1 = 12
 N_elem2 = 7
-N_elem_i = min(N_elem1, N_elem2)
+N_elem_i = 8
 left_m = "t"
 right_m = "t"
 skew = 0.

@@ -117,13 +117,13 @@ function get_node_id(x::Vector{Float64}, node_map, XU,
         push!(XU, x)
         
         baryA = barycentre(x, ax)
-        baryB = barycentre(x, bx)
-        nid = size(XU,1)
-        push!(IA, nid, nid, nid)
+        nids = [size(XU,1) for k in 1:length(ai)]
+        push!(IA, nids...)
         push!(JA, ai...)
         push!(VA, baryA...)
         if order == 1
-            push!(IB, nid, nid, nid)
+            baryB = barycentre(x, bx)
+            push!(IB, nids...)
             push!(JB, bi...)
             push!(VB, baryB...)
         end
@@ -187,32 +187,81 @@ end
 # ###############################################################################
 
 function barycentre(x, xas::Matrix)
+    if size(xas, 1) == 3
+        a = xas[1, :]
+        b = xas[2, :]
+        c = xas[3, :]
 
-    a = xas[1, :]
-    b = xas[2, :]
-    c = xas[3, :]
+        v0 = b - a
+        v1 = c - a
 
-    v0 = b - a
-    v1 = c - a
+        d00 = dot(v0, v0)
+        d01 = dot(v0, v1)
+        d11 = dot(v1, v1)
 
-    d00 = dot(v0, v0)
-    d01 = dot(v0, v1)
-    d11 = dot(v1, v1)
+        denom = d00 * d11 - d01 * d01
+        @assert denom != 0 "Triangle is degenerate"
+        v2 = x - a
 
-    denom = d00 * d11 - d01 * d01
-    @assert denom != 0 "Triangle is degenerate"
-    v2 = x - a
+        d20 = dot(v2, v0)
+        d21 = dot(v2, v1)
 
-    d20 = dot(v2, v0)
-    d21 = dot(v2, v1)
+        λ2 = (d11 * d20 - d01 * d21) / denom
+        λ3 = (d00 * d21 - d01 * d20) / denom
+        λ1 = 1.0 - λ2 - λ3
 
-    λ2 = (d11 * d20 - d01 * d21) / denom
-    λ3 = (d00 * d21 - d01 * d20) / denom
-    λ1 = 1.0 - λ2 - λ3
+        bary = [λ1, λ2, λ3]
 
-    bary = [λ1, λ2, λ3]
+        return bary
+    elseif size(xas, 1) == 4
+        a = xas[1, :]
+        b = xas[2, :]
+        c = xas[3, :]
+        d = xas[4, :]
 
-    return bary
+        # Bilinear map:
+        # X(s,t) = (1-s)(1-t)a + s(1-t)b + st c + (1-s)t d
+        #
+        # Equivalently:
+        # X(s,t) = a + s(b-a) + t(d-a) + s*t(c-b-d+a)
+
+        e1 = b - a
+        e2 = d - a
+        e3 = c - b - d + a
+
+        # good default for clipped points inside the element
+        s = 0.5
+        t = 0.5
+        for iter in 1:20
+            # residual in R^3
+            r = a + s*e1 + t*e2 + (s*t)*e3 - x
+
+            # tangent vectors dX/ds and dX/dt in R^3
+            Js = e1 + t*e3
+            Jt = e2 + s*e3
+
+            # Solve least-squares Newton step:
+            # [Js Jt] * δ ≈ r
+            J = hcat(Js, Jt)   # 3 x 2
+            δ = J \ r          # least-squares, no singular planar 3x3 solve
+
+            s -= δ[1]
+            t -= δ[2]
+
+            if norm(δ) < 1e-12 || norm(r) < 1e-12
+                break
+            end
+        end
+
+        λ1 = (1 - s) * (1 - t)
+        λ2 = s * (1 - t)
+        λ3 = s * t
+        λ4 = (1 - s) * t
+
+        return [λ1, λ2, λ3, λ4]
+    else
+        error("Unsupported element with $(size(xas,1)) nodes")
+    end
 end 
 
 
@@ -318,6 +367,9 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, order = 1)
     PiA = sparse(IA, JA, VA)
     PiB = sparse(IB, JB, VB)
 
+    # PiA = 0
+    # PiB = 0
+
     fesu = FESetT3(stack(connU, dims=1))
     fensu = FENodeSet(stack(XU, dims=1))
     kappa = [1.0 0; 0 1.0] 
@@ -387,8 +439,10 @@ end
 #     1 5 6 4;
 #     5 2 3 6
 # ]
+# fes_1 = FESetQ4(connA)
+# fens_1 = FENodeSet(XA)
 
-# # Mesh B: 4 triangles (fan from center)
+# # # Mesh B: 4 triangles (fan from center)
 # XB = [
 #     0.0 0.0 0.0;
 #     1.0 0.0 0.0;
@@ -402,6 +456,9 @@ end
 #     1 5 6 4;
 #     5 2 3 6
 # ]
+
+# fes_2 = FESetQ4(connB)
+fens_2 = FENodeSet(XB)
 
 # N_elem_1 = 1
 # N_elem_2 = 3
@@ -424,7 +481,7 @@ end
 
 # # error("stop")
 
-# C, meta = common_refinement(fens_1, fes_1, fens_2, fes_2; order=0, h=0.13)
+# C, meta = common_refinement(fens_1, fes_1, fens_2, fes_2; order=1, h=0.13)
 
 # XU = stack(meta["XU"], dims=1)
 # connU = stack(meta["connU"], dims=1)
