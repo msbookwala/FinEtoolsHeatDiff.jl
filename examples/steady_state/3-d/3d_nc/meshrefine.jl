@@ -117,13 +117,14 @@ function get_node_id(x::Vector{Float64}, node_map, XU,
         push!(XU, x)
         
         baryA = barycentre(x, ax)
-        nids = [size(XU,1) for k in 1:length(ai)]
-        push!(IA, nids...)
+        nids_a = [size(XU,1) for k in 1:length(ai)]
+        nids_b = [size(XU,1) for k in 1:length(bi)]
+        push!(IA, nids_a...)
         push!(JA, ai...)
         push!(VA, baryA...)
         if order == 1
             baryB = barycentre(x, bx)
-            push!(IB, nids...)
+            push!(IB, nids_b...)
             push!(JB, bi...)
             push!(VB, baryB...)
         end
@@ -266,7 +267,7 @@ end
 
 
 # ################################################################################
-function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, order = 1)
+function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, lam_order = 1, tri_order = 1)
                            # connA and connB must be for quads or tri completely for now. hence matrix.
                            # TODO: for mixed quad+tri, add vector of vectors
     
@@ -335,29 +336,56 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, order = 1)
                 vs = [clipped[k][1], clipped[k][2], clipped[k][3]]
                 push!(conn, get_node_id(vs, node_map, XU,
                                         ai, ax, IA, JA, VA, 
-                                        bi, bx, IB, JB, VB; order=order))
+                                        bi, bx, IB, JB, VB; order=lam_order))
             end
             conn = unique(conn)
             nv = length(conn)
             # # Triangulation
             if length(conn)>=3
                 for k in 3:nv
-                    push!(connU, [conn[1], conn[k-1], conn[k]])
+                    conn_cuurent = [conn[1], conn[k-1], conn[k]]
+
+                    if tri_order == 2
+                        # add midpoints of edges
+                        mid12 = (XU[conn[1]] + XU[conn[k-1]]) / 2
+                        mid23 = (XU[conn[k-1]] + XU[conn[k]]) / 2
+                        mid31 = (XU[conn[k]] + XU[conn[1]]) / 2
+
+                        mid12_id = get_node_id(mid12, node_map, XU,
+                                                ai, ax, IA, JA, VA, 
+                                                bi, bx, IB, JB, VB; order=lam_order)
+                        mid23_id = get_node_id(mid23, node_map, XU,
+                                                ai, ax, IA, JA, VA, 
+                                                bi, bx, IB, JB, VB; order=lam_order)
+                        mid31_id = get_node_id(mid31, node_map, XU,
+                                                ai, ax, IA, JA, VA, 
+                                                bi, bx, IB, JB, VB; order=lam_order)
+
+                        conn_cuurent = [conn[1], conn[k-1], conn[k], mid12_id, mid23_id, mid31_id]
+                    end
+                    push!(connU, conn_cuurent )
                     push!(parentA, i)
                     push!(parentB, j)
-                    if order==0
+                    if lam_order==0
                         push!(IB, size(connU,1))
                         push!(JB, j)
                         push!(VB, 1.0)
                     end
-
-
                 end
             end
         end
         
     end
     # making dimensions consistent for C/D
+    if tri_order ==1
+        fesu = FESetT3(stack(connU, dims=1))
+    elseif tri_order == 2
+        fesu = FESetT6(stack(connU, dims=1))
+    end
+    fensu = FENodeSet(stack(XU, dims=1))
+    # if tri_order==2
+    #     fensu, fesu = T3toT6(fensu, fesu)
+    # end
 
     push!(IA, 1)
     push!(JA, size(XA, 1))
@@ -370,8 +398,7 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, order = 1)
     # PiA = 0
     # PiB = 0
 
-    fesu = FESetT3(stack(connU, dims=1))
-    fensu = FENodeSet(stack(XU, dims=1))
+    
     kappa = [1.0 0; 0 1.0] 
     material = MatHeatDiff(kappa)
     geomu = NodalField(fensu.xyz)
@@ -379,9 +406,9 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, order = 1)
     numberdofs!(uu)
     femmu = FEMMHeatDiff(IntegDomain(fesu, TriRule(4)), material)
 
-    if order ==1
+    if lam_order ==1
         M = mass(femmu, geomu, uu)
-    elseif order == 0
+    elseif lam_order == 0
         M = mass_like(femmu, geomu, uu)
     end
     C = PiB' * M * PiA
@@ -393,8 +420,8 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, order = 1)
         "connA" => connA,
         "XB" => XB,
         "connB" => connB,
-        "XU" => XU,
-        "connU" => connU,
+        "fes_u" => fesu,
+        "fens_u" => fensu,
         "parentA" => parentA,
         "parentB" => parentB,
         "PiA" => PiA,
@@ -458,7 +485,7 @@ end
 # ]
 
 # fes_2 = FESetQ4(connB)
-fens_2 = FENodeSet(XB)
+# fens_2 = FENodeSet(XB)
 
 # N_elem_1 = 1
 # N_elem_2 = 3
