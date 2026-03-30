@@ -270,7 +270,8 @@ end
 function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, lam_order = 1, tri_order = 1)
                            # connA and connB must be for quads or tri completely for now. hence matrix.
                            # TODO: for mixed quad+tri, add vector of vectors
-    
+    triangulation_type = "naive" 
+    triangulation_type = "cp"
     XA = fensA.xyz
     connA = stack(fesA.conn, dims=1)
     XB = fensB.xyz
@@ -341,15 +342,58 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, lam_order = 1, tri
             conn = unique(conn)
             nv = length(conn)
             # # Triangulation
-            if length(conn)>=3
-                for k in 3:nv
-                    conn_cuurent = [conn[1], conn[k-1], conn[k]]
+            if triangulation_type=="naive"
+                if length(conn)>=3
+                    for k in 3:nv
+                        conn_cuurent = [conn[1], conn[k-1], conn[k]]
+
+                        if tri_order == 2
+                            # add midpoints of edges
+                            mid12 = (XU[conn[1]] + XU[conn[k-1]]) / 2
+                            mid23 = (XU[conn[k-1]] + XU[conn[k]]) / 2
+                            mid31 = (XU[conn[k]] + XU[conn[1]]) / 2
+
+                            mid12_id = get_node_id(mid12, node_map, XU,
+                                                    ai, ax, IA, JA, VA, 
+                                                    bi, bx, IB, JB, VB; order=lam_order)
+                            mid23_id = get_node_id(mid23, node_map, XU,
+                                                    ai, ax, IA, JA, VA, 
+                                                    bi, bx, IB, JB, VB; order=lam_order)
+                            mid31_id = get_node_id(mid31, node_map, XU,
+                                                    ai, ax, IA, JA, VA, 
+                                                    bi, bx, IB, JB, VB; order=lam_order)
+
+                            conn_cuurent = [conn[1], conn[k-1], conn[k], mid12_id, mid23_id, mid31_id]
+                        end
+                        push!(connU, conn_cuurent )
+                        push!(parentA, i)
+                        push!(parentB, j)
+                        if lam_order==0
+                            push!(IB, size(connU,1))
+                            push!(JB, j)
+                            push!(VB, 1.0)
+                        end
+                    end
+                end
+            elseif triangulation_type=="cp"
+                # get midpoint of clipped polygon for use as Steiner point in triangulation
+                centroid = zeros(3)
+                for k in 1:nv
+                    centroid .+= XU[conn[k]]
+                end
+                centroid ./= nv
+                cnid = get_node_id(centroid, node_map, XU,
+                            ai, ax, IA, JA, VA, 
+                            bi, bx, IB, JB, VB; order=lam_order)
+                # triangulate using centroid as Steiner 
+                for k in 1:nv
+                    conn_cuurent = [conn[k], conn[mod1(k+1, nv)], cnid]
 
                     if tri_order == 2
                         # add midpoints of edges
-                        mid12 = (XU[conn[1]] + XU[conn[k-1]]) / 2
-                        mid23 = (XU[conn[k-1]] + XU[conn[k]]) / 2
-                        mid31 = (XU[conn[k]] + XU[conn[1]]) / 2
+                        mid12 = (XU[conn[k]] + XU[conn[mod1(k+1, nv)]]) / 2
+                        mid23 = (XU[conn[mod1(k+1, nv)]] + XU[cnid]) / 2
+                        mid31 = (XU[cnid] + XU[conn[k]]) / 2
 
                         mid12_id = get_node_id(mid12, node_map, XU,
                                                 ai, ax, IA, JA, VA, 
@@ -361,7 +405,7 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, lam_order = 1, tri
                                                 ai, ax, IA, JA, VA, 
                                                 bi, bx, IB, JB, VB; order=lam_order)
 
-                        conn_cuurent = [conn[1], conn[k-1], conn[k], mid12_id, mid23_id, mid31_id]
+                        conn_cuurent = [conn[k], conn[mod1(k+1,nv)], cnid , mid12_id, mid23_id, mid31_id]
                     end
                     push!(connU, conn_cuurent )
                     push!(parentA, i)
@@ -374,7 +418,6 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, lam_order = 1, tri
                 end
             end
         end
-        
     end
     # making dimensions consistent for C/D
     if tri_order ==1
@@ -404,7 +447,7 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, lam_order = 1, tri
     geomu = NodalField(fensu.xyz)
     uu = NodalField(zeros(size(fensu.xyz, 1), 1))
     numberdofs!(uu)
-    femmu = FEMMHeatDiff(IntegDomain(fesu, TriRule(4)), material)
+    femmu = FEMMHeatDiff(IntegDomain(fesu, TriRule(6)), material)
 
     if lam_order ==1
         M = mass(femmu, geomu, uu)

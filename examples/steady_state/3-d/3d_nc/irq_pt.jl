@@ -125,8 +125,8 @@ numberdofs!(u_i)
 
 
 
-D1, meta1 = common_refinement(fens1, edge_fes1, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=2 )
-D2, meta2 = common_refinement(fens2, edge_fes2, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=2 )
+D1, meta1 = common_refinement(fens1, edge_fes1, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=1 )
+D2, meta2 = common_refinement(fens2, edge_fes2, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=1 )
 
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
 
@@ -154,5 +154,11 @@ vtkexportmesh(
     File2,
     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", err2.values)]
 )
+file3 = "union.vtk"
+vtkexportmesh(
+    file3,
+    meta1["fens_u"], meta1["fes_u"],scalars = []
+)
+
 println(u_i.values)
 
