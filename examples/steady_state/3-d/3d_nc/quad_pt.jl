@@ -8,10 +8,10 @@ include("meshrefine.jl")
 
 
 N_elem1 = 7
-N_elem2 = 11
+N_elem2 = 9
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "h"
-right_m = "h"
+right_m = "t"
 skew = 0.
 lam_order = 0
 
@@ -147,12 +147,12 @@ vtkexportmesh(
 File3 = "um_left.vtk"
 vtkexportmesh(
     File3,
-    meta1["fens_u"], meta1["fes_u"],scalars = []
+    meta1["fens_u"], meta1["fes_u"], scalars = []
 )
 File4 = "um_right.vtk"
 vtkexportmesh(
     File4,
-    meta2["fens_u"], meta2["fes_u"],scalars = []
+    meta2["fens_u"], meta2["fes_u"], scalars = []
 )
 println(u_i.values)
 

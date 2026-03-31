@@ -125,8 +125,8 @@ numberdofs!(u_i)
 
 
 
-D1, meta1 = common_refinement(fens1, edge_fes1, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=1 )
-D2, meta2 = common_refinement(fens2, edge_fes2, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=1 )
+D1, meta1 = common_refinement(fens1, edge_fes1, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=2, triangulation_type = "cp" )
+D2, meta2 = common_refinement(fens2, edge_fes2, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=2, triangulation_type = "cp" )
 
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
 

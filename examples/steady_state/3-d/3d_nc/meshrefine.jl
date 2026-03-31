@@ -267,11 +267,10 @@ end
 
 
 # ################################################################################
-function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, lam_order = 1, tri_order = 1)
+function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, lam_order = 1, tri_order = 1, triangulation_type = "naive" )
                            # connA and connB must be for quads or tri completely for now. hence matrix.
                            # TODO: for mixed quad+tri, add vector of vectors
-    triangulation_type = "naive" 
-    triangulation_type = "cp"
+
     XA = fensA.xyz
     connA = stack(fesA.conn, dims=1)
     XB = fensB.xyz
