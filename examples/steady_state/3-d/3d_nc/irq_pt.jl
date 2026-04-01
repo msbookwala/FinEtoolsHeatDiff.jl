@@ -13,7 +13,7 @@ N_elem_i = min(N_elem1, N_elem2)
 left_m = "h"
 right_m = "h"
 skew = 0.
-lam_order = 1
+lam_order = 0
 
 kappa = [1.0 0.0 0.0; 0 1.0 0.0; 0.0 0.0 1.0] 
 material = MatHeatDiff(kappa)
@@ -50,6 +50,11 @@ el1femm = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1), GaussRule(2,2)))
 fi1 = ForceIntensity(Float64[-1.0])
 F1 = distribloads(el1femm, geom1, T1, fi1, 2)
 F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
+
+l1_ = selectelem(fens1, meshboundary(fes1), box = [0.5,0.5, 0.0,height1, 0.0, depth1], inflate=1e-8)
+el1femm_ = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1_), GaussRule(2,2)))
+fi1_ = ForceIntensity(Float64[1.0])
+F1_ = distribloads(el1femm_, geom1, T1, fi1_, 2)
 ##########################################################################################
 width2 = 0.5
 height2 = 1.0
@@ -91,6 +96,12 @@ fi2 = ForceIntensity(Float64[1.0])
 F2 = distribloads(el2femm, geom2, T2, fi2, 2)
 F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 
+l2_ = selectelem(fens2, meshboundary(fes2), box = [0.5,0.5, 0.0,height2, 0.0, depth2], inflate=1e-8)
+el2femm_ = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2_), GaussRule(2,2)))
+fi2_ = ForceIntensity(Float64[1.0])
+F2_ = distribloads(el2femm_, geom2, T2, fi2_, 2)
+
+
 # File1 = "left.vtk"
 # vtkexportmesh(
 #     File1,
@@ -125,8 +136,16 @@ numberdofs!(u_i)
 
 
 
-D1, meta1 = common_refinement(fens1, edge_fes1, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=2, triangulation_type = "cp" )
-D2, meta2 = common_refinement(fens2, edge_fes2, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=2, triangulation_type = "cp" )
+D1, meta1 = common_refinement(fens1, edge_fes1, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=2, triangulation_type = "naive" )
+D2, meta2 = common_refinement(fens2, edge_fes2, fens_i, fes_i; lam_order=lam_order, h=1.0, tri_order=2, triangulation_type = "naive" )
+
+# G1 = D1'*ones(size(D1,1))
+# G2 = D2'*ones(size(D2,1))
+# J1 = I(size(D1,2)) - G1*(F1_-G1)'/(G1'*G1)
+# J2 = I(size(D2,2)) - G2*(F2_-G2)'/(G2'*G2)
+# D1 = D1*J1
+# D2 = D2*J2
+
 
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
 
