@@ -13,7 +13,7 @@ N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "t"
 skew = 0.
-lam_order = 0
+lam_order = 1
 
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
@@ -118,8 +118,8 @@ else
 end
 numberdofs!(u_i)
 femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), material)
-D1,_,_ = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
-D2,_,_ = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+D1,Pi_N1,Pi_phi1,Mu_1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8, give_m=true)
+D2,Pi_N2,Pi_phi2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
 
 # D1 = D1[:, setdiff(1:count(fens1), dbc_nodes1)]
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
@@ -183,3 +183,7 @@ plot!(xi_2[:, 2], err_i_2, label="Right Side", marker=:square)
 savefig("patch_test_interface_error.pdf")
 
 
+n_whole1 = size(fens1.xyz)[1]
+interface_nodes1 = selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)
+# W = build_dual_basis_matrix(interface_nodes1, n_whole1; dim_u=1)
+W = dual_basis_matrix_1d(N_elem_i+1)

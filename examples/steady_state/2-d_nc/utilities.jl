@@ -36,7 +36,7 @@ end
 
 # end
 
-function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8)
+function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8, give_m = false)
     # edge_nodes_sd = unique(collect(Iterators.flatten(edge_fes.conn[:])))
     p = maximum(length.(edge_fes.conn)) - 1
     fens_u, fes_u, M_u = build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order=lam_order)
@@ -46,17 +46,25 @@ function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8
     if lam_order != 0
         Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, p)
         D = Pi_phi' * M_u * Pi_NC
-        return D, Pi_NC, Pi_phi
+        if give_m
+            return D, Pi_NC, Pi_phi, M_u
+        else
+            return D, Pi_NC, Pi_phi
+        end
     else 
     # R = build_R_from_node_ids(edge_nodes_sd, count(fens_sd); dim_u=1)
         S = build_S_from_elements(fens_u.xyz[:, 1:2], fes_u.conn,
                               fens_i.xyz[:, 1:2], fes_i.conn, 1; tol=tol, dim_u=1)
         D = S' * M_u * Pi_NC
-        return D, Pi_NC, S
+        if give_m
+            return D, Pi_NC, S, M_u
+        else
+            return D, Pi_NC, S
+        end
     end
 end
 
-function build_D_matrix(fens_u, fes_u, fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8)
+function build_D_matrix(fens_u, fes_u, fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8, give_m = false)
     p_sd = maximum(length.(edge_fes.conn)) - 1
     p_i = maximum(length.(fes_i.conn)) - 1
     X = fens_u.xyz[ :, 1:2]
@@ -77,13 +85,21 @@ function build_D_matrix(fens_u, fes_u, fens_i, fes_i, fens_sd, edge_fes; lam_ord
     if lam_order != 0
         Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, p_i)
         D = Pi_phi' * M_u * Pi_NC
-        return D, Pi_NC, Pi_phi
+        if give_m
+            return D, Pi_NC, S, M_u
+        else
+            return D, Pi_NC, Pi_phi
+        end
     else 
     # R = build_R_from_node_ids(edge_nodes_sd, count(fens_sd); dim_u=1)
         S = build_S_from_elements(fens_u.xyz[:, 1:2], fes_u.conn,
                               fens_i.xyz[:, 1:2], fes_i.conn, p_i; tol=tol, dim_u=1)
         D = S' * M_u * Pi_NC
-        return D, Pi_NC, S
+        if give_m
+            return D, Pi_NC, S, M_u
+        else
+            return D, Pi_NC, S
+        end
     end
 end
 
@@ -351,4 +367,86 @@ function build_S_from_elements(fens_u_xyz, conn_u, fens_frame_xyz, conn_frame, p
     end
 
     return sparse(I, J, V, n_u_e*dim_u, n_f_e*dim_u)
+end
+
+function build_dual_basis_matrix(interface_nodes, n_whole; dim_u=1)
+    n_int = length(interface_nodes)
+    n_int >= 2 || error("Need at least 2 interface nodes.")
+
+    I = Int[]
+    J = Int[]
+    V = Float64[]
+
+    touched = falses(n_whole)
+
+    # Fill interface rows with dual-basis coefficients
+    for a in 1:n_int
+        gi = interface_nodes[a]   # global row node id
+        touched[gi] = true
+
+        if a == 1
+            # left end: ψ1 = 2N1 - N2
+            nbrs = ((gi, 2.0), (interface_nodes[2], -1.0))
+        elseif a == n_int
+            # right end: ψn = -N_{n-1} + 2N_n
+            nbrs = ((interface_nodes[n_int-1], -1.0), (gi, 2.0))
+        else
+            # interior: ψi = -N_{i-1} + 2N_i - N_{i+1}
+            nbrs = (
+                (interface_nodes[a-1], -1.0),
+                (gi, 2.0),
+                (interface_nodes[a+1], -1.0),
+            )
+        end
+
+        for k in 0:(dim_u-1)
+            row = (gi-1)*dim_u + k + 1
+            for (gj, val) in nbrs
+                col = (gj-1)*dim_u + k + 1
+                push!(I, row)
+                push!(J, col)
+                push!(V, val)
+            end
+        end
+    end
+
+    # Identity on all non-interface rows
+    for node in 1:n_whole
+        if !touched[node]
+            for k in 0:(dim_u-1)
+                idx = (node-1)*dim_u + k + 1
+                push!(I, idx)
+                push!(J, idx)
+                push!(V, 1.0)
+            end
+        end
+    end
+
+    return sparse(I, J, V, dim_u*n_whole, dim_u*n_whole)
+end
+
+function dual_basis_matrix_1d(n::Int)
+    n >= 2 || error("Need at least 2 interface nodes.")
+
+    I = Int[]
+    J = Int[]
+    V = Float64[]
+
+    # for i in 2:n-1
+    for i in 1:n
+        # diagonal
+        push!(I, i); push!(J, i); push!(V, 2.0)
+
+        # left neighbor
+        if i > 1
+            push!(I, i); push!(J, i-1); push!(V, -1.0)
+        end
+
+        # right neighbor
+        if i < n
+            push!(I, i); push!(J, i+1); push!(V, -1.0)
+        end
+    end
+
+    return sparse(I, J, V, n, n)
 end
