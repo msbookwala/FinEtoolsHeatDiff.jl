@@ -36,7 +36,7 @@ end
 # ============================================================
 
 lam_order = 1
-mults = 1:4
+mults = 1:5
 
 betavals = Float64[]
 hvals = Float64[]
@@ -243,14 +243,18 @@ end
 # plot
 # ============================================================
 
+using LaTeXStrings
+default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
+
 plot(
-    hvals, betavals,
-    xscale = :log10,
+    [mults], betavals,
+    # xscale = :log10,
     yscale = :log10,
     marker = :circle,
-    xlabel = "h",
-    ylabel = "beta_h (discrete inf–sup constant)",
-    title  = "LBB verification (lam_order = 1, P1 mortar)",
+    xlabel = L"Refinement factor $r$",
+     ylabel = L"$\sigma_{min}$: Lowest Singular Value of $\mathbf{G}$",
+    title  = "LBB verification: P1 Lagrange multipliers",
     grid   = true,
     legend = false
 )
+savefig("4quad_P1_stability.png")

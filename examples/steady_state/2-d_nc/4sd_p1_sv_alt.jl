@@ -35,7 +35,7 @@ end
 # parameters
 # ============================================================
 
-lam_order = 0
+lam_order = 1
 mults = 1:5
 
 betavals = Float64[]
@@ -89,7 +89,7 @@ hvals = Float64[]
 
     for i in 1:2
         for j in 1:2
-            n = ceil(Int, nelems[2*(i-1)+j])
+            n = nelems[2*(i-1)+j]
             fens_local,fes_local = T3block(0.5,0.5,n,n)
             fens_local.xyz[:,1] .+= (i-1)*0.5
             fens_local.xyz[:,2] .+= (j-1)*0.5
@@ -155,7 +155,7 @@ hvals = Float64[]
 
     edge_fes_all = extract_interface_fes(bfes_all, fens_all, boundary_boxes)
 
-    N_elem_i = 2*ceil(Int, nelems[4])
+    N_elem_i = 2*nelems[4]-1
 
     xs_i1 = 0.5*ones(N_elem_i+1)
     ys_i1 = collect(linearspace(0.0, 1.0, N_elem_i+1))
@@ -218,8 +218,8 @@ hvals = Float64[]
     B = D_mat
 
 
-    M1_lg = p0_mass_matrix_1d(fens_i[1], fes_i[1]; ind=2)
-    M2_lg = p0_mass_matrix_1d(fens_i[2], fes_i[2]; ind=1)
+    M1_lg = mass(femm_i[1], geom_i[1], u_i[1])
+    M2_lg = mass(femm_i[2], geom_i[2], u_i[2])
     M_lg = blockdiag(M1_lg, M2_lg)
     
 
@@ -242,6 +242,7 @@ end
 # ============================================================
 # plot
 # ============================================================
+
 using LaTeXStrings
 default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
 
@@ -252,8 +253,8 @@ plot(
     marker = :circle,
     xlabel = L"Refinement factor $r$",
      ylabel = L"$\sigma_{min}$: Lowest Singular Value of $\mathbf{G}$",
-    title  = "LBB verification: P0 Lagrange multipliers",
+    title  = "LBB verification: P1 Lagrange multipliers",
     grid   = true,
     legend = false
 )
-savefig("4quad_P0_stability.png")
+savefig("4quad_P1_alt_stability.png")
