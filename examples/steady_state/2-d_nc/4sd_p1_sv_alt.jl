@@ -36,7 +36,7 @@ end
 # ============================================================
 
 lam_order = 1
-mults = 1:5
+mults = 0:6
 
 betavals = Float64[]
 hvals = Float64[]

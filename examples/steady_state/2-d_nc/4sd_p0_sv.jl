@@ -36,7 +36,7 @@ end
 # ============================================================
 
 lam_order = 0
-mults = 1:5
+mults = 0:6
 
 betavals = Float64[]
 hvals = Float64[]
@@ -155,7 +155,7 @@ hvals = Float64[]
 
     edge_fes_all = extract_interface_fes(bfes_all, fens_all, boundary_boxes)
 
-    N_elem_i = 2*ceil(Int, nelems[4])
+    N_elem_i = 2*nelems[4]
 
     xs_i1 = 0.5*ones(N_elem_i+1)
     ys_i1 = collect(linearspace(0.0, 1.0, N_elem_i+1))
@@ -256,4 +256,4 @@ plot(
     grid   = true,
     legend = false
 )
-savefig("4quad_P0_stability.png")
+savefig("4quad_P0_stability.pdf")
