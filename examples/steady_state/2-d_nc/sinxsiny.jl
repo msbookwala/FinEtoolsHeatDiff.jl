@@ -7,27 +7,36 @@ using LinearAlgebra
 using Plots
 include("utilities.jl")
 
-r = 1
-N_elem1 = 2*(2^r)
-N_elem2 = 3*(2^r)
+r =1
+println(r)
+N_elem1 = 6*(2^r)
+N_elem2 = 9*(2^r)
 N_elem_i = min(N_elem1, N_elem2)
+# N_elem_i = (2^r)*2
+
 left_m = "q"
-right_m = "q"
+right_m = "t"
 skew = 0.5
-bend = 0.
-lam_order = 0
+bend = 0.0
+lam_order = 1
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
-Q = -6.0
-sol(x,y) = 1 .+ x.^2 + 2*y.^2
-q(x,y) = 4*y
+
+sol(x,y) = sin(pi*x)*sin(pi*y)
+q(x,y) = -pi*sin(pi*x)
+
+Q(x,y) = 2*pi^2*sin(pi*x)*sin(pi*y)
 
 function topflux!(forceout, XYZ, tangents, feid, qpid)
     forceout[1] = q(XYZ[1], XYZ[2]) #heat source
     return forceout
 end
 function botflux!(forceout, XYZ, tangents, feid, qpid)
-    forceout[1] = -q(XYZ[1], XYZ[2]) #heat source
+    forceout[1] = q(XYZ[1], XYZ[2]) #heat source
+    return forceout
+end
+function hs!(forceout, XYZ, tangents, feid, qpid)
+    forceout[1] = Q(XYZ[1], XYZ[2]) #heat source
     return forceout
 end
 
@@ -35,13 +44,13 @@ end
 width1 = 0.5
 height1 = 1.0
 if left_m == "t"
-    fens1, fes1 = T6block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    fens1, fes1 = T3block(width1, height1, floor(Int, N_elem1/2), N_elem1)
     Rule1 = TriRule(9)
 else
     xs1 = collect(linearspace(0.0, width1, floor(Int, N_elem1/2)+1))
     ys1 = collect(linearspace(0.0, height1, N_elem1+1))
-    fens1, fes1 = Q9blockx(xs1, ys1)
-    Rule1 = GaussRule(2,4)
+    fens1, fes1 = Q4blockx(xs1, ys1)
+    Rule1 = GaussRule(2,5)
 end
 
 boundaryfes1 = meshboundary(fes1)
@@ -49,22 +58,22 @@ edge_fes1 = subset(boundaryfes1, selectelem(fens1, boundaryfes1,  box=[width1,wi
 
 interface_nodes1 = selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)
 
-
 #########################################################################################
 
 
 width2 = 0.5
 height2 = 1.0
 if right_m == "t"
-    fens2, fes2 = T6block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
     Rule2 = TriRule(9)
     fens2.xyz[:, 1] .+= 0.5
 else
     xs2 = collect(linearspace(0.5 ,0.5+ width2, floor(Int, N_elem2/2)+1))
     ys2 = collect(linearspace(0.0, height2, N_elem2+1))
-    fens2, fes2 = Q9blockx(xs2, ys2)
-    Rule2 = GaussRule(2,4)
+    fens2, fes2 = Q4blockx(xs2, ys2)
+    Rule2 = GaussRule(2,5)
 end
+# shift the second mesh to the right by 1.0
 
 
 boundaryfes2 = meshboundary(fes2)
@@ -98,6 +107,10 @@ geom1 = NodalField(fens1.xyz)
 T1 = NodalField(zeros(size(fens1.xyz, 1), 1)) # displacement field
 
 boxleft = [0.0,0.0,0.0,1.0]
+boxright = [1.0,1.0,0.0,1.0]
+boxtop = [0.0,1.0, 1.0,1.0]
+boxbot = [0.0,1.0, 0.0,0.0]
+
 dbc_nodes1 = selectnode(fens1; box=boxleft, inflate=1e-8)
 for i in dbc_nodes1
     setebc!(T1, [i], 1, sol(fens1.xyz[i,1], fens1.xyz[i,2]))
@@ -112,12 +125,12 @@ K1_fd = matrix_blocked(K1, nfreedofs(T1), nfreedofs(T1))[:fd]
 
 l1top = selectelem(fens1, meshboundary(fes1), box = [0.0,1., height1,height1], inflate=1e-8)
 l1bot = selectelem(fens1, meshboundary(fes1), box = [0.0,1., 0.0,0.0], inflate=1e-8)
-el1femmbot = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1bot), GaussRule(1,2)))
-el1femmtop = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1top), GaussRule(1,2)))
+el1femmbot = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1bot), GaussRule(1,5)))
+el1femmtop = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1top), GaussRule(1,5)))
 
 fi1 = ForceIntensity(Float64, 1, topflux!)
 fi2 = ForceIntensity(Float64, 1, botflux!)
-fis = ForceIntensity(Float64[Q])
+fis = ForceIntensity(Float64, 1, hs!)
 F1 = distribloads(el1femmtop, geom1, T1, fi1, 2)
 F1 += distribloads(el1femmbot, geom1, T1, fi2, 2)
 F1 += distribloads(femm1, geom1, T1, fis, 3) 
@@ -150,15 +163,14 @@ K2_fd = matrix_blocked(K2, nfreedofs(T2), nfreedofs(T2))[:fd]
 
 l2top = selectelem(fens2, meshboundary(fes2), box = [0.,1.0, height2,height2], inflate=1e-8)
 l2bot = selectelem(fens2, meshboundary(fes2), box = [0.,1.0, 0.0,0.0], inflate=1e-8)
-el2femmtop = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2top), GaussRule(1,2)))
-el2femmbot = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2bot), GaussRule(1,2)))
+el2femmtop = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2top), GaussRule(1,5)))
+el2femmbot = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2bot), GaussRule(1,5)))
 
 
 F2 = distribloads(el2femmtop, geom2, T2, fi1, 2)
 F2 += distribloads(el2femmbot, geom2, T2, fi2, 2)
 F2 += distribloads(femm2, geom2, T2, fis, 3)
 F2_ff = vector_blocked(F2, nfreedofs(T2))[:f] - K2_fd * gathersysvec(T2, :d)
-
 
 
 #################################################################################
@@ -177,7 +189,7 @@ else
     u_i  = NodalField(zeros(size(fens_i.xyz, 1), 1)) # Lagrange multipliers field
 end
 numberdofs!(u_i)
-femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), MatHeatDiff(reshape([1.0], 1, 1)))
+femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,5)), MatHeatDiff(reshape([1.0], 1, 1)))
 
 
 D1,Pi_NC1,Pi_phi1 = build_D_matrix(fens_u1, fes_u1, fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
@@ -211,29 +223,31 @@ l2err1 = L2_err(femm1, geom1, T1, sol)
 l2err2 = L2_err(femm2, geom2, T2, sol)
 
 
-File1 = "quadratic_test_left.vtk"
+File1 = "sinxsiny_test_left.vtk"
 vtkexportmesh(
     File1,
     fens1, fes1,scalars = [("Temperature", T1.values), ("Err", l2err1.values)]
 )
-File2 = "quadratic_test_right.vtk"
+File2 = "sinxsiny_test_right.vtk"
 vtkexportmesh(
     File2,
     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
 )
 # println(u_i.values)
-# # plot(geom_i.values[:,1], u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
+# plot(geom_i.values[:,1], u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
 # plot( u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
-
 tot_l2 = sqrt(sum(l2err1.values.^2) + sum(l2err2.values.^2))
 
-exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
-# exact_lagrange(x,y) = -2*x/sqrt(1+(bend*(y-0.5))^2) + 4*y*(bend*(y-0.5))/sqrt(1+(bend*(y-0.5))^2)
-
+# exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
+function exact_lagrange(x, y)
+    a = 0.5*skew + bend*(y - 0.5)
+    return -pi * (cos(pi*x)*sin(pi*y) - a*sin(pi*x)*cos(pi*y)) / sqrt(1 + a^2)
+end
 
 lag_err = L2_err(femm_i, geom_i, u_i, exact_lagrange)
 tot_lag_err = sqrt(sum(lag_err.values.^2))
-
+# println("Total L2 error in solution: $tot_l2")
+# println("Total L2 error in Lagrange Multiplier: $tot_lag_err")
 
 xi_1 = fens1.xyz[interface_nodes1, :]
 xi_2 = fens2.xyz[interface_nodes2, :]
@@ -254,19 +268,18 @@ dist2 = sqrt.(xi_2[:, 1].^2 .+ xi_2[:, 2].^2)
 dist1 = xi_1[:, 2]
 dist2 = xi_2[:, 2]
 
-
 using Plots
 using LaTeXStrings
 
 default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
-plot(dist1, ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ on interface ", ylabel="Temperature", title="Temperature along the interface")
+plot(dist1, ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Temperature", title="Temperature along the interface")
 plot!(dist2, ui_2, label="Right side", marker=:square)
-savefig("p2_quadratic_test_interface.pdf")
+savefig("sinxsiny_test_interface.pdf")
 
 u_i_actual1 = sol.(xi_1[:, 1], xi_1[:, 2])
 u_i_actual2 = sol.(xi_2[:, 1], xi_2[:, 2])
 err_i_1 = abs.(ui_1 .- u_i_actual1)
 err_i_2 = abs.(ui_2 .- u_i_actual2)
-plot(dist1, err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface ", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
+plot(dist1, err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
 plot!(dist2, err_i_2, label="Right Side", marker=:square)
-savefig("p2_quadratic_test_interface_error.pdf")
+savefig("sinxsiny_test_interface_error.pdf")
