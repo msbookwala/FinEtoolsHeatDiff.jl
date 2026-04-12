@@ -81,9 +81,9 @@ function build_D_matrix(fens_u, fes_u, fens_i, fes_i, fens_sd, edge_fes; lam_ord
         M_u = mass(femm_u, geom_u, u_u)
     end
 
-    Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], edge_fes.conn, p_sd)
+    Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], edge_fes.conn, p_sd;partition_of_unity=:inverse)
     if lam_order != 0
-        Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, p_i)
+        Pi_phi = Lagrange_interpolation_matrix(X, fens_i.xyz[:, 1:2], fes_i.conn, p_i;partition_of_unity=true)
         D = Pi_phi' * M_u * Pi_NC
         if give_m
             return D, Pi_NC, S, M_u
@@ -253,7 +253,6 @@ function Lagrange_interpolation_matrix(X, Y, conn, p;
         best_xi = 0.0
         best_dist = Inf
 
-        # choose closest element by projection distance
         for elem_idx in 1:nels
             nodes = conn[elem_idx][:]
             xi, dist, ok = get_xi((Float64(X[r,1]), Float64(X[r,2])), Y, nodes, p; tol=tol)
@@ -270,7 +269,6 @@ function Lagrange_interpolation_matrix(X, Y, conn, p;
         nodes = conn[best_elem][:]
         xi = best_xi
 
-        # standard interpolation when point is on/near the element
         if best_dist <= tol
             if abs(xi + 1.0) <= eps_end
                 for k in 0:(dim_u-1)
@@ -300,26 +298,22 @@ function Lagrange_interpolation_matrix(X, Y, conn, p;
             end
 
         else
-            # off-element fallback
             if p == 1
                 x1, y1 = Y[nodes[1],1], Y[nodes[1],2]
                 x2, y2 = Y[nodes[2],1], Y[nodes[2],2]
                 px, py = X[r,1], X[r,2]
 
-                # distances from original point to nodes
                 d1 = hypot(px - x1, py - y1)
                 d2 = hypot(px - x2, py - y2)
 
-                # projection point from xi
                 tproj = 0.5 * (xi + 1.0)
                 xproj = x1 + tproj * (x2 - x1)
                 yproj = y1 + tproj * (y2 - y1)
 
-                # distances from projection to nodes
                 d1p = hypot(xproj - x1, yproj - y1)
                 d2p = hypot(xproj - x2, yproj - y2)
 
-                if partition_of_unity
+                if partition_of_unity == true
                     denom = d1p + d2p
                     if denom <= eps(Float64)
                         N1 = 0.5
@@ -328,7 +322,8 @@ function Lagrange_interpolation_matrix(X, Y, conn, p;
                         N1 = d2p / denom
                         N2 = d1p / denom
                     end
-                else
+
+                elseif partition_of_unity == false
                     denom = d1 + d2
                     if denom <= eps(Float64)
                         N1 = 0.0
@@ -337,6 +332,19 @@ function Lagrange_interpolation_matrix(X, Y, conn, p;
                         N1 = d2p / denom
                         N2 = d1p / denom
                     end
+
+                elseif partition_of_unity == :inverse
+                    denom = d1p + d2p
+                    if denom <= eps(Float64)
+                        N1 = 0.0
+                        N2 = 0.0
+                    else
+                        N1 = d2 / denom
+                        N2 = d1 / denom
+                    end
+
+                else
+                    error("partition_of_unity must be true, false, or :inverse")
                 end
 
                 for k in 0:(dim_u-1)
@@ -350,11 +358,10 @@ function Lagrange_interpolation_matrix(X, Y, conn, p;
                 end
 
             else
-                # keep projected FE interpolation for higher-order case
                 N = lagrange_1d(xi, p)
                 N = N[perm]
 
-                if partition_of_unity
+                if partition_of_unity == true
                     s = sum(N)
                     if abs(s) > eps(Float64)
                         N ./= s

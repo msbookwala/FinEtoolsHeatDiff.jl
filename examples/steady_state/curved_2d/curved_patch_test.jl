@@ -7,7 +7,7 @@ using LinearAlgebra
 include("utilities.jl")
 
 
-N_elem1 = 3
+N_elem1 = 2
 N_elem2 = 3
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
@@ -168,6 +168,6 @@ vtkexportmesh(
     File2,
     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", err2.values)]
 )
-println(u_i.values)
-
+println(err1.values)
+println(err2.values)
 
