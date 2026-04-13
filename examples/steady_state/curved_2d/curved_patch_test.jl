@@ -57,8 +57,7 @@ xs_i = 0.5*ones(N_elem_i+1)
 ys_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
 fens_i, fes_i = L2blockx2D(xs_i, ys_i)
 
-fens_u1, fes_u1, _ = build_union_mesh(fens_i,fes_i, fens1, edge_fes1, p; lam_order=lam_order)
-fens_u2, fes_u2, _ = build_union_mesh(fens_i,fes_i, fens2, edge_fes2, p; lam_order=lam_order)
+
 ############################################################################################
 
 # fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 1.0)
@@ -70,7 +69,7 @@ T1 = NodalField(zeros(size(fens1.xyz, 1), 1)) # temp field
 # box1 = [0.0,0.0,0.0,0.0]
 # dbc_nodes1 = selectnode(fens1; box=box1, inflate=1e-8)
 # for i in dbc_nodes1
-#     setebc!(T1, [i], 1, 0.0)
+#     setebc!(T1, [i], 1, -1.0)
 # end
 
 applyebc!(T1)
@@ -78,12 +77,14 @@ numberdofs!(T1)
 femm1 = FEMMHeatDiff(IntegDomain(fes1, Rule1), material)
 K1 = conductivity(femm1, geom1, T1)
 K1_ff = matrix_blocked(K1, nfreedofs(T1), nfreedofs(T1))[:ff]
+K1_fd = matrix_blocked(K1, nfreedofs(T1), nfreedofs(T1))[:fd]
 
 l1 = selectelem(fens1, meshboundary(fes1), box = [0.0,0.0, 0.0,height1], inflate=1e-8)
 el1femm = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1), GaussRule(1,2)))
 fi1 = ForceIntensity(Float64[-1.0])
 F1 = distribloads(el1femm, geom1, T1, fi1, 2)
 F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
+
 
 
 ################################################################################
@@ -119,8 +120,8 @@ F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 #################################################################################
 # fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 1.0)
 fens_i.xyz[:, 1] .+= bend * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 0.5).^2
-fens_u1.xyz[:, 1] .+= bend * fens_u1.xyz[:, 1].*(fens_u1.xyz[:, 2] .- 0.5).^2
-fens_u2.xyz[:, 1] .+= bend * fens_u2.xyz[:, 1].*(fens_u2.xyz[:, 2] .- 0.5).^2
+fens_u1, fes_u1, _ = build_union_mesh(fens_i,fes_i, fens1, edge_fes1, p; lam_order=lam_order)
+fens_u2, fes_u2, _ = build_union_mesh(fens_i,fes_i, fens2, edge_fes2, p; lam_order=lam_order)
 
 geom_i = NodalField(fens_i.xyz)
 if lam_order == 0
