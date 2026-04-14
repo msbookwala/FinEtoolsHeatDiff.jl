@@ -1,0 +1,195 @@
+using FinEtools
+using FinEtools.AlgoBaseModule: solve_blocked!, matrix_blocked, vector_blocked
+using FinEtoolsHeatDiff
+using FinEtoolsHeatDiff.AlgoHeatDiffModule
+using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
+using LinearAlgebra
+using KrylovKit
+include("utilities.jl")
+mult=1
+N_elem1 = 2 * 2^mult
+N_elem2 = 3 * 2^mult
+N_elem_i = min(N_elem1, N_elem2)
+left_m = "q"
+right_m = "t"
+skew = 0.
+lam_order = 1
+
+kappa = [1.0 0; 0 1.0] 
+material = MatHeatDiff(kappa)
+
+#########################################################################################
+width1 = 0.5
+height1 = 1.0
+if left_m == "t"
+    fens1, fes1 = T3block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    Rule1 = TriRule(1)
+else
+    fens1, fes1 = Q4block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    Rule1 = GaussRule(2,2)
+end
+
+# edge_nodes1 = selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)
+boundaryfes1 = meshboundary(fes1)
+edge_fes1 = subset(boundaryfes1, selectelem(fens1, boundaryfes1,  box=[width1,width1, 0.0,height1], inflate=1e-8))
+
+fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 0.5)
+
+
+geom1 = NodalField(fens1.xyz)
+T1 = NodalField(zeros(size(fens1.xyz, 1), 1)) # displacement field
+
+# box1 = [0.0,0.0,0.0,0.0]
+# dbc_nodes1 = selectnode(fens1; box=box1, inflate=1e-8)
+# for i in dbc_nodes1
+#     setebc!(T1, [i], 1, 0.0)
+# end
+
+applyebc!(T1)
+numberdofs!(T1)
+femm1 = FEMMHeatDiff(IntegDomain(fes1, Rule1), material)
+K1 = conductivity(femm1, geom1, T1)
+K1_ff = matrix_blocked(K1, nfreedofs(T1), nfreedofs(T1))[:ff]
+
+l1 = selectelem(fens1, meshboundary(fes1), box = [0.0,0.0, 0.0,height1], inflate=1e-8)
+el1femm = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1), GaussRule(1,2)))
+fi1 = ForceIntensity(Float64[-1.0])
+F1 = distribloads(el1femm, geom1, T1, fi1, 2)
+F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
+
+
+#########################################################################################
+
+
+width2 = 0.5
+height2 = 1.0
+if right_m == "t"
+    fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    Rule2 = TriRule(1)
+else
+    fens2, fes2 = Q4block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    Rule2 = GaussRule(2,2)
+end
+# shift the second mesh to the right by 1.0
+fens2.xyz[:, 1] .+= 0.5
+
+boundaryfes2 = meshboundary(fes2)
+edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2, box=[0.5,0.5, 0.0,height2], inflate=1e-8))
+
+fens2.xyz[:, 1] .+= skew * (1.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 0.5)
+
+geom2 = NodalField(fens2.xyz)
+T2 = NodalField(zeros(size(fens2.xyz, 1), 1)) # displacement field
+
+box2 = [1.0,1.0,0.0,0.0]
+dbc_nodes2 = selectnode(fens2; box=box2, inflate=1e-8)
+for i in dbc_nodes2
+    setebc!(T2, [i], 1, 0.0)
+end
+
+applyebc!(T2)
+
+numberdofs!(T2)
+femm2 = FEMMHeatDiff(IntegDomain(fes2, Rule2), material)
+K2 = conductivity(femm2, geom2, T2)
+K2_ff = matrix_blocked(K2, nfreedofs(T2), nfreedofs(T2))[:ff]
+F2 = zeros(size(K2, 1))
+F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
+
+l2 = selectelem(fens2, meshboundary(fes2), box = [1.0,1.0, 0.0,height2], inflate=1e-8)
+el2femm = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2), GaussRule(1,2)))
+fi2 = ForceIntensity(Float64[1.0])
+F2 = distribloads(el2femm, geom2, T2, fi2, 2)
+F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
+
+
+##########################################################################################
+alpha1 =0.5
+alpha2 = 0.5
+gamma = 1000
+he = 1.0 / N_elem1
+
+D11,_,_ = build_D_matrix(fens1, edge_fes1, fens1, edge_fes1; lam_order=0,tol=1e-8)
+D12,_,_ = build_D_matrix(fens1, edge_fes1, fens2, edge_fes2; lam_order=0,tol=1e-8)
+D21,_,_ = build_D_matrix(fens2, edge_fes2, fens1, edge_fes1; lam_order=0,tol=1e-8)
+D22,_,_ = build_D_matrix(fens2, edge_fes2, fens2, edge_fes2; lam_order=0,tol=1e-8)
+
+mat1 = [-alpha1*D11  alpha1*D12; alpha2*D21 -alpha2*D22]
+mat2 = mat1'
+
+E11,_,_ = build_D_matrix(fens1, edge_fes1, fens1, edge_fes1; lam_order=1,tol=1e-8)
+E12,_,_ = build_D_matrix(fens1, edge_fes1, fens2, edge_fes2; lam_order=1,tol=1e-8)
+E2  ,_,_ = build_D_matrix(fens2, edge_fes2, fens2, edge_fes2; lam_order=1,tol=1e-8)
+
+mat3 = gamma*N_elem1*[E11  E12; E12' E2]
+
+error("oh no")
+D1,Pi_N1,Pi_phi1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
+D2,Pi_N2,Pi_phi2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+
+# D1 = D1[:, setdiff(1:count(fens1), dbc_nodes1)]
+D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
+
+A = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2))    D1';
+     zeros(size(K2_ff,1), size(K1_ff,2))     K2_ff          -D2';
+     D1               -D2               zeros(size(D1,1), size(D1,1))]
+# A = cholesky(A)
+# show(Matrix(A))
+B = vcat(F1_ff, F2_ff, zeros(size(D1,1)))
+X = A \ B
+
+scattersysvec!(T1, X[1:size(K1_ff,1)])
+scattersysvec!(T2, X[size(K1_ff,1)+1 : size(K1_ff,1)+size(K2_ff,1)])
+scattersysvec!(u_i, X[size(K1_ff,1)+size(K2_ff,1)+1 : end])
+
+sol(x,y) = x-1
+err1 = L2_err(femm1, geom1, T1, sol)
+err2 = L2_err(femm2, geom2, T2, sol)
+
+File1 = "patch_test_left.vtk"
+vtkexportmesh(
+    File1,
+    fens1, fes1,scalars = [("Temperature", T1.values), ("Err", err1.values)]
+)
+File2 = "patch_test_right.vtk"
+vtkexportmesh(
+    File2,
+    fens2, fes2,scalars = [("Temperature", T2.values), ("Err", err2.values)]
+)
+println(u_i.values)
+# A1 = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2)) ;
+#      zeros(size(K2_ff,1), size(K1_ff,2))     K2_ff   ]
+# A2 = [D1';
+#      -D2']
+# svals1,_,_ = svdsolve(D1, 2, which=:SR)
+# svals2,_,_ = svdsolve(D2, 2, which=:SR)
+# println("Min singular value of D1 matrix: ", svals1[1])
+# println("Min singular value of D2 matrix: ", svals2[1])
+# plot the values on the interface from both sides
+
+ui_1 = T1.values[selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)]
+xi_1 = fens1.xyz[selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8), :]
+ui_2 = T2.values[selectnode(fens2; box=[0.5,0.5, 0.0,height2], inflate=1e-8)]
+xi_2 = fens2.xyz[selectnode(fens2; box=[0.5,0.5, 0.0,height2], inflate=1e-8), :]
+
+using Plots
+using LaTeXStrings
+
+default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
+plot(xi_1[:, 2], ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Temperature", title="Temperature along the interface", ylims=(-0.50000000001,-0.49999999999))
+plot!(xi_2[:, 2], ui_2, label="Right side", marker=:square)
+savefig("patch_test_interface.pdf")
+
+u_i_actual1 = sol.(xi_1[:, 1], xi_1[:, 2])
+u_i_actual2 = sol.(xi_2[:, 1], xi_2[:, 2])
+err_i_1 = abs.(ui_1 .- u_i_actual1)
+err_i_2 = abs.(ui_2 .- u_i_actual2)
+plot(xi_1[:, 2], err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
+plot!(xi_2[:, 2], err_i_2, label="Right Side", marker=:square)
+savefig("patch_test_interface_error.pdf")
+
+
+n_whole1 = size(fens1.xyz)[1]
+interface_nodes1 = selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)
+# W = build_dual_basis_matrix(interface_nodes1, n_whole1; dim_u=1)
+W = dual_basis_matrix_1d(N_elem_i+1)
