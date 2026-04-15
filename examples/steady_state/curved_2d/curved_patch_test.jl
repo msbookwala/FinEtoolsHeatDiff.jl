@@ -7,13 +7,13 @@ using LinearAlgebra
 include("utilities.jl")
 
 
-N_elem1 = 2
-N_elem2 = 3
+N_elem1 = 3
+N_elem2 = 2
 N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "q"
 skew = 0.0
-bend = 0.5
+bend = 0.1
 lam_order = 1
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
@@ -107,8 +107,8 @@ numberdofs!(T2)
 femm2 = FEMMHeatDiff(IntegDomain(fes2, Rule2), material)
 K2 = conductivity(femm2, geom2, T2)
 K2_ff = matrix_blocked(K2, nfreedofs(T2), nfreedofs(T2))[:ff]
-F2 = zeros(size(K2, 1))
-F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
+# F2 = zeros(size(K2, 1))
+# F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 
 l2 = selectelem(fens2, meshboundary(fes2), box = [1.0,1.0, 0.0,height2], inflate=1e-8)
 el2femm = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2), GaussRule(1,2)))

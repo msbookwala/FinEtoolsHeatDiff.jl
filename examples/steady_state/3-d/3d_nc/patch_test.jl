@@ -8,13 +8,13 @@ using LinearAlgebra
 include("meshrefine.jl")
 
 
-N_elem1 = 12
-N_elem2 = 7
-N_elem_i = 8
+N_elem1 = 50
+N_elem2 = 30
+N_elem_i = 30
 left_m = "t"
 right_m = "t"
 skew = 0.
-lam_order = 1
+lam_order = 0
 
 kappa = [1.0 0.0 0.0; 0 1.0 0.0; 0.0 0.0 1.0] 
 material = MatHeatDiff(kappa)
@@ -107,8 +107,9 @@ numberdofs!(u_i)
 # D1, Pi_NC1, Pi_phi1, M_u1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
 # D2, Pi_NC2, Pi_phi2, M_u2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
 
-D1, meta1 = common_refinement(fens1, edge_fes1, fens_i, fes_i; lam_order=lam_order, h=0.13)
-D2, meta2 = common_refinement(fens2, edge_fes2, fens_i, fes_i; lam_order=lam_order, h=0.13)
+
+@time D1, meta1 = common_refinement(fens1, edge_fes1, fens_i, fes_i; lam_order=lam_order, h=0.03)
+@time D2, meta2 = common_refinement(fens2, edge_fes2, fens_i, fes_i; lam_order=lam_order, h=0.033)
 
 # error()
 
