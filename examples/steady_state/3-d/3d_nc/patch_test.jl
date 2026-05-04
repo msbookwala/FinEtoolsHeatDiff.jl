@@ -8,9 +8,9 @@ using LinearAlgebra
 include("meshrefine.jl")
 
 
-N_elem1 = 50
-N_elem2 = 30
-N_elem_i = 30
+N_elem1 = 5
+N_elem2 = 3
+N_elem_i = 3
 left_m = "t"
 right_m = "t"
 skew = 0.
