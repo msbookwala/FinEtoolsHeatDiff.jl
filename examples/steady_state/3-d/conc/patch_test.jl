@@ -16,7 +16,7 @@ left_m = "t"
 right_m = "t"
 skew = 0.
 lam_order = 0
-bend=0
+bend=1
 kappa = [1.0 0.0 0.0; 0 1.0 0.0; 0.0 0.0 1.0] 
 material = MatHeatDiff(kappa)
 
