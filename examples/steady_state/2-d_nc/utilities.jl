@@ -79,6 +79,15 @@ function build_D_matrix(fens_u, fes_u, fens_i, fes_i, fens_sd, edge_fes; lam_ord
         M_u = mass_like(femm_u, geom_u, u_u)
     else
         M_u = mass(femm_u, geom_u, u_u)
+
+        # onevector = ones(size(M_u, 1))
+        # M_u = spdiagm(M_u * onevector)
+
+        # M_udiag = diag(M_u)
+        # factor = sum(M_u)/sum(M_udiag)
+        # M_u = spdiagm(factor * M_udiag)
+
+
     end
 
     Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], edge_fes.conn, p_sd)
@@ -150,6 +159,8 @@ function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0, cur
         M_u = mass_like(femm_u, geom_u, u_u)
     else
         M_u = mass(femm_u, geom_u, u_u)
+        # onevector = ones(size(M_u, 1))
+        # M_u = spdiagm(M_u * onevector)
     end
     return fens_u, fes_u, M_u
 end

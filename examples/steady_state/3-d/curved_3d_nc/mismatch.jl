@@ -7,7 +7,7 @@ using LinearAlgebra
 # include("utilities_old.jl")
 include("meshrefine.jl")
 
-m=8
+m=1
 N_elem1 = 7*m
 N_elem2 = 6*m
 N_elem_i = 6*m

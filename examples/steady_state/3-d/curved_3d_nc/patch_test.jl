@@ -8,13 +8,13 @@ using LinearAlgebra
 include("meshrefine.jl")
 
 
-N_elem1 = 5*2
+N_elem1 = 3*2
 N_elem2 = 3*2
 N_elem_i = 3*2
 left_m = "t"
 right_m = "t"
 skew = 0.
-lam_order = 0
+lam_order = 1
 bend=2
 kappa = [1.0 0.0 0.0; 0 1.0 0.0; 0.0 0.0 1.0] 
 material = MatHeatDiff(kappa)
@@ -94,7 +94,7 @@ F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 xs_i = 0.5
 ys_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
 zs_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
-fens_i, fes_i = T3blockx(ys_i, zs_i, :a)
+fens_i, fes_i = T3blockx(ys_i, zs_i, :b)
 fens_i.xyz = hcat(xs_i*ones(size(fens_i.xyz, 1), 1), fens_i.xyz)
 fens_i.xyz[:, 1] .+= bend * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 0.5).^2
 

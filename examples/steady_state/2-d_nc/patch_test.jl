@@ -161,29 +161,23 @@ println(u_i.values)
 # println("Min singular value of D2 matrix: ", svals2[1])
 # plot the values on the interface from both sides
 
-ui_1 = T1.values[selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)]
-xi_1 = fens1.xyz[selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8), :]
-ui_2 = T2.values[selectnode(fens2; box=[0.5,0.5, 0.0,height2], inflate=1e-8)]
-xi_2 = fens2.xyz[selectnode(fens2; box=[0.5,0.5, 0.0,height2], inflate=1e-8), :]
+# ui_1 = T1.values[selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)]
+# xi_1 = fens1.xyz[selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8), :]
+# ui_2 = T2.values[selectnode(fens2; box=[0.5,0.5, 0.0,height2], inflate=1e-8)]
+# xi_2 = fens2.xyz[selectnode(fens2; box=[0.5,0.5, 0.0,height2], inflate=1e-8), :]
 
-using Plots
-using LaTeXStrings
+# using Plots
+# using LaTeXStrings
 
-default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
-plot(xi_1[:, 2], ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Temperature", title="Temperature along the interface", ylims=(-0.50000000001,-0.49999999999))
-plot!(xi_2[:, 2], ui_2, label="Right side", marker=:square)
-savefig("patch_test_interface.pdf")
+# default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
+# plot(xi_1[:, 2], ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Temperature", title="Temperature along the interface", ylims=(-0.50000000001,-0.49999999999))
+# plot!(xi_2[:, 2], ui_2, label="Right side", marker=:square)
+# savefig("patch_test_interface.pdf")
 
-u_i_actual1 = sol.(xi_1[:, 1], xi_1[:, 2])
-u_i_actual2 = sol.(xi_2[:, 1], xi_2[:, 2])
-err_i_1 = abs.(ui_1 .- u_i_actual1)
-err_i_2 = abs.(ui_2 .- u_i_actual2)
-plot(xi_1[:, 2], err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
-plot!(xi_2[:, 2], err_i_2, label="Right Side", marker=:square)
-savefig("patch_test_interface_error.pdf")
-
-
-n_whole1 = size(fens1.xyz)[1]
-interface_nodes1 = selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)
-# W = build_dual_basis_matrix(interface_nodes1, n_whole1; dim_u=1)
-W = dual_basis_matrix_1d(N_elem_i+1)
+# u_i_actual1 = sol.(xi_1[:, 1], xi_1[:, 2])
+# u_i_actual2 = sol.(xi_2[:, 1], xi_2[:, 2])
+# err_i_1 = abs.(ui_1 .- u_i_actual1)
+# err_i_2 = abs.(ui_2 .- u_i_actual2)
+# plot(xi_1[:, 2], err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
+# plot!(xi_2[:, 2], err_i_2, label="Right Side", marker=:square)
+# savefig("patch_test_interface_error.pdf")

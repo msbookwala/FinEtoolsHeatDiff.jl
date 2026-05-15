@@ -16,9 +16,9 @@ N_elem_i = min(N_elem1, N_elem2)
 
 left_m = "q"
 right_m = "t"
-skew = 0.5
+skew = 0.0
 bend = 0.0
-lam_order = 0
+lam_order = 1
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 
@@ -236,37 +236,37 @@ tot_lag_err = sqrt(sum(lag_err.values.^2))
 println("Total L2 error in solution: $tot_l2")
 println("Total L2 error in Lagrange Multiplier: $tot_lag_err")
 
-xi_1 = fens1.xyz[interface_nodes1, :]
-xi_2 = fens2.xyz[interface_nodes2, :]
+# xi_1 = fens1.xyz[interface_nodes1, :]
+# xi_2 = fens2.xyz[interface_nodes2, :]
 
-argsort1 = sortperm(xi_1[:, 2])
-argsort2 = sortperm(xi_2[:, 2])
-xi_1 = xi_1[argsort1, :]
-xi_2 = xi_2[argsort2, :]
+# argsort1 = sortperm(xi_1[:, 2])
+# argsort2 = sortperm(xi_2[:, 2])
+# xi_1 = xi_1[argsort1, :]
+# xi_2 = xi_2[argsort2, :]
 
 
 
-ui_1 = T1.values[interface_nodes1][argsort1]
+# ui_1 = T1.values[interface_nodes1][argsort1]
 
-ui_2 = T2.values[interface_nodes2][argsort2]
+# ui_2 = T2.values[interface_nodes2][argsort2]
 
-dist1 = sqrt.(xi_1[:, 1].^2 .+ xi_1[:, 2].^2)
-dist2 = sqrt.(xi_2[:, 1].^2 .+ xi_2[:, 2].^2)
-dist1 = xi_1[:, 2]
-dist2 = xi_2[:, 2]
+# dist1 = sqrt.(xi_1[:, 1].^2 .+ xi_1[:, 2].^2)
+# dist2 = sqrt.(xi_2[:, 1].^2 .+ xi_2[:, 2].^2)
+# dist1 = xi_1[:, 2]
+# dist2 = xi_2[:, 2]
 
-using Plots
-using LaTeXStrings
+# using Plots
+# using LaTeXStrings
 
-default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
-plot(dist1, ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Temperature", title="Temperature along the interface")
-plot!(dist2, ui_2, label="Right side", marker=:square)
-savefig("quadratic_test_interface.pdf")
+# default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
+# plot(dist1, ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Temperature", title="Temperature along the interface")
+# plot!(dist2, ui_2, label="Right side", marker=:square)
+# savefig("quadratic_test_interface.pdf")
 
-u_i_actual1 = sol.(xi_1[:, 1], xi_1[:, 2])
-u_i_actual2 = sol.(xi_2[:, 1], xi_2[:, 2])
-err_i_1 = abs.(ui_1 .- u_i_actual1)
-err_i_2 = abs.(ui_2 .- u_i_actual2)
-plot(dist1, err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
-plot!(dist2, err_i_2, label="Right Side", marker=:square)
-savefig("quadratic_test_interface_error.pdf")
+# u_i_actual1 = sol.(xi_1[:, 1], xi_1[:, 2])
+# u_i_actual2 = sol.(xi_2[:, 1], xi_2[:, 2])
+# err_i_1 = abs.(ui_1 .- u_i_actual1)
+# err_i_2 = abs.(ui_2 .- u_i_actual2)
+# plot(dist1, err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
+# plot!(dist2, err_i_2, label="Right Side", marker=:square)
+# savefig("quadratic_test_interface_error.pdf")

@@ -450,6 +450,8 @@ function common_refinement(fensA, fesA, fensB, fesB; h = 0.1, lam_order = 1, tri
 
     if lam_order ==1
         M = mass(femmu, geomu, uu)
+        # onevec = ones(size(M,1))
+        # M = spdiagm(M * onevec)
     elseif lam_order == 0
         M = mass_like(femmu, geomu, uu)
     end
