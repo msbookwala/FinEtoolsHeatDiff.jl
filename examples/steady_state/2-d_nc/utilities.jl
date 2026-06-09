@@ -2,7 +2,7 @@ using SparseArrays
 using LinearAlgebra
 using FinEtools
 using FinEtools.AlgoBaseModule
-
+using Infiltrator
 
 
 function extract_interface_fes(edge_fe_s, fen_s, boxes)
@@ -39,7 +39,8 @@ end
 function build_D_matrix(fens_i, fes_i, fens_sd, edge_fes; lam_order = 0,tol=1e-8, give_m = false)
     # edge_nodes_sd = unique(collect(Iterators.flatten(edge_fes.conn[:])))
     p = maximum(length.(edge_fes.conn)) - 1
-    fens_u, fes_u, M_u = build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order=lam_order)
+    fens_u, fes_u, M_u = build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order=lam_order, to_trim=true, dir=2)
+    # @infiltrate
     X = fens_u.xyz[ :, 1:2]
     
     Pi_NC = Lagrange_interpolation_matrix(X, fens_sd.xyz[:, 1:2], edge_fes.conn, p)
@@ -141,7 +142,7 @@ function build_union_mesh(fens_i,fes_i, fens_sd, edge_fes, p; lam_order = 0, cur
         end
         q = sortperm(endpoints[:, dir])
         endpoints = endpoints[q, :]
-
+        # @infiltrate
     if p==1
         fens_u, fes_u = L2blockx2D(endpoints[:, 1], endpoints[:, 2])
     elseif p==2

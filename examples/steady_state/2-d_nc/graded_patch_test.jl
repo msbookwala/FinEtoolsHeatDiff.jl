@@ -6,11 +6,10 @@ using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
 using KrylovKit
 include("utilities.jl")
-mult=10
+mult=3
 N_elem1 = 2 * 2^mult
 N_elem2 = 3 * 2^mult
-# N_elem_i = min(N_elem1, N_elem2)
-N_elem_i = 3
+N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "t"
 skew = 0.
@@ -22,11 +21,17 @@ material = MatHeatDiff(kappa)
 #########################################################################################
 width1 = 0.5
 height1 = 1.0
+xs1 = collect(linearspace(0.0, width1, ceil(Int, N_elem1/2)))
+# ys1 = log10.(logspace(0.0, height1, N_elem1))
+ys1 = gradedspace(0.0, height1, N_elem1, 1.5)
 if left_m == "t"
-    fens1, fes1 = T3block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    fens1, fes1 = T3blockx(xs1, ys1)
+
+    # fens1, fes1 = T3block(width1, height1, floor(Int, N_elem1/2), N_elem1)
     Rule1 = TriRule(1)
 else
-    fens1, fes1 = Q4block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    fens1, fes1 = Q4blockx(xs1, ys1)
+    # fens1, fes1 = Q4block(width1, height1, floor(Int, N_elem1/2), N_elem1)
     Rule1 = GaussRule(2,2)
 end
 
@@ -61,18 +66,21 @@ F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
 
 #########################################################################################
 
-
+xs2 = collect(linearspace(0.5, 1.0, ceil(Int, N_elem2/2)))
+ys2 = gradedspace(0.0, 1.0, N_elem2, 0.8)
 width2 = 0.5
 height2 = 1.0
 if right_m == "t"
-    fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    # fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    fens2, fes2 = T3blockx(xs2, ys2)
     Rule2 = TriRule(1)
 else
-    fens2, fes2 = Q4block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    # fens2, fes2 = Q4block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    fens2, fes2 = Q4blockx(xs2, ys2)    
     Rule2 = GaussRule(2,2)
 end
 # shift the second mesh to the right by 1.0
-fens2.xyz[:, 1] .+= 0.5
+# fens2.xyz[:, 1] .+= 0.5
 
 boundaryfes2 = meshboundary(fes2)
 edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2, box=[0.5,0.5, 0.0,height2], inflate=1e-8))
@@ -106,8 +114,10 @@ F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 
 ##########################################################################################
 
-xs_i = 0.5*ones(N_elem_i+1)
-ys_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
+# xs_i = 0.5*ones(N_elem_i+1)
+# ys_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
+ys_i = ys1
+xs_i = 0.5*ones(length(ys_i))
 fens_i, fes_i = L2blockx2D(xs_i, ys_i)
 fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 0.5)
 

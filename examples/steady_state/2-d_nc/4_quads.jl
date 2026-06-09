@@ -6,7 +6,7 @@ using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
 include("utilities.jl")
 
-lam_order = 0
+# lam_order = 0
 
 function f(x,y)
     return 1+x.^2 + 2*y.^2

@@ -7,7 +7,7 @@ using LinearAlgebra
 using Plots
 include("utilities.jl")
 
-r = 0
+# r = 0
 N_elem1 = 2*(2^r)
 N_elem2 = 3*(2^r)
 N_elem_i = min(N_elem1, N_elem2)
@@ -15,7 +15,7 @@ left_m = "q"
 right_m = "q"
 skew = 0.0
 bend = 0.5
-lam_order = 2
+# lam_order = 2
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 Q = -6.0
@@ -212,24 +212,24 @@ l2err1 = L2_err(femm1, geom1, T1, sol)
 l2err2 = L2_err(femm2, geom2, T2, sol)
 
 
-File1 = "curved_quadratic_test_left.vtk"
-vtkexportmesh(
-    File1,
-    fens1, fes1,scalars = [("Temperature", T1.values), ("Err", l2err1.values)]
-)
-File2 = "curved_quadratic_test_right.vtk"
-vtkexportmesh(
-    File2,
-    fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
-)
+# File1 = "curved_quadratic_test_left.vtk"
+# vtkexportmesh(
+#     File1,
+#     fens1, fes1,scalars = [("Temperature", T1.values), ("Err", l2err1.values)]
+# )
+# File2 = "curved_quadratic_test_right.vtk"
+# vtkexportmesh(
+#     File2,
+#     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", l2err2.values)]
+# )
 println(u_i.values)
 # # plot(geom_i.values[:,1], u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
 # plot( u_i.values, seriestype=:scatter, title="Lagrange Multipliers", xlabel="Node Number", ylabel="Multiplier Value")
 
 tot_l2 = sqrt(sum(l2err1.values.^2) + sum(l2err2.values.^2))
 
-exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
-# exact_lagrange(x,y) = -2*x/sqrt(1+(bend*(y-0.5))^2) + 4*y*(bend*(y-0.5))/sqrt(1+(bend*(y-0.5))^2)
+# exact_lagrange(x,y) = -2*x*cos(atan(0.5*skew)) + 4*y*sin(atan(0.5*skew))
+exact_lagrange(x,y) = -2*x/sqrt(1+(bend*(y-0.5))^2) + 4*y*(bend*(y-0.5))/sqrt(1+(bend*(y-0.5))^2)
 
 
 lag_err = L2_err(femm_i, geom_i, u_i, exact_lagrange)
@@ -256,18 +256,18 @@ dist2 = sqrt.(xi_2[:, 1].^2 .+ xi_2[:, 2].^2)
 dist1 = xi_1[:, 2]
 dist2 = xi_2[:, 2]
 
-using Plots
-using LaTeXStrings
+# using Plots
+# using LaTeXStrings
 
-default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
-plot(dist1, ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ oninterface ", ylabel="Temperature", title="Temperature along the interface")
-plot!(dist2, ui_2, label="Right side", marker=:square)
-savefig("curved_test_interface.pdf")
+# default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
+# plot(dist1, ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ oninterface ", ylabel="Temperature", title="Temperature along the interface")
+# plot!(dist2, ui_2, label="Right side", marker=:square)
+# savefig("curved_test_interface.pdf")
 
-u_i_actual1 = sol.(xi_1[:, 1], xi_1[:, 2])
-u_i_actual2 = sol.(xi_2[:, 1], xi_2[:, 2])
-err_i_1 = abs.(ui_1 .- u_i_actual1)
-err_i_2 = abs.(ui_2 .- u_i_actual2)
-plot(dist1, err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface ", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
-plot!(dist2, err_i_2, label="Right Side", marker=:square)
-savefig("curved_test_interface_error.pdf")
+# u_i_actual1 = sol.(xi_1[:, 1], xi_1[:, 2])
+# u_i_actual2 = sol.(xi_2[:, 1], xi_2[:, 2])
+# err_i_1 = abs.(ui_1 .- u_i_actual1)
+# err_i_2 = abs.(ui_2 .- u_i_actual2)
+# plot(dist1, err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface ", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
+# plot!(dist2, err_i_2, label="Right Side", marker=:square)
+# savefig("curved_test_interface_error.pdf")

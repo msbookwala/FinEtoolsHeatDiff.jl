@@ -6,8 +6,8 @@ using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
 include("utilities.jl")
 
-lam_order = 0
-r = 3
+# lam_order = 0
+# r = 3
 
 function f(x,y)
     # println("a(x,y)=", a(x,y)  )

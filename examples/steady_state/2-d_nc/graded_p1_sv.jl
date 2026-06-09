@@ -1,3 +1,19 @@
+
+using Plots
+
+
+lam_order = 1
+mults = 1:5
+
+betavals = Float64[]
+hvals = Float64[]
+
+
+
+for mult in mults
+    println("\n===== mult = $mult =====")
+
+
 using FinEtools
 using FinEtools.AlgoBaseModule: solve_blocked!, matrix_blocked, vector_blocked
 using FinEtoolsHeatDiff
@@ -5,28 +21,35 @@ using FinEtoolsHeatDiff.AlgoHeatDiffModule
 using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
 using KrylovKit
+using Arpack
+using SparseArrays
 include("utilities.jl")
-mult=10
-N_elem1 = 2 * 2^mult
-N_elem2 = 3 * 2^mult
-# N_elem_i = min(N_elem1, N_elem2)
-N_elem_i = 3
+
+N_elem1 = 2 * ceil(Int, 2^mult)
+N_elem2 = 2 * ceil(Int, 2^mult)
+N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "t"
 skew = 0.
 lam_order = 1
-
+h = 1.0 / N_elem_i
 kappa = [1.0 0; 0 1.0] 
 material = MatHeatDiff(kappa)
 
 #########################################################################################
 width1 = 0.5
 height1 = 1.0
+xs1 = collect(linearspace(0.0, width1, ceil(Int, N_elem1/2)))
+# ys1 = log10.(logspace(0.0, height1, N_elem1))
+ys1 = gradedspace(0.0, height1, N_elem1, 2.0)
 if left_m == "t"
-    fens1, fes1 = T3block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    fens1, fes1 = T3blockx(xs1, ys1)
+
+    # fens1, fes1 = T3block(width1, height1, floor(Int, N_elem1/2), N_elem1)
     Rule1 = TriRule(1)
 else
-    fens1, fes1 = Q4block(width1, height1, floor(Int, N_elem1/2), N_elem1)
+    fens1, fes1 = Q4blockx(xs1, ys1)
+    # fens1, fes1 = Q4block(width1, height1, floor(Int, N_elem1/2), N_elem1)
     Rule1 = GaussRule(2,2)
 end
 
@@ -40,11 +63,11 @@ fens1.xyz[:, 1] .+= skew * fens1.xyz[:, 1].*(fens1.xyz[:, 2] .- 0.5)
 geom1 = NodalField(fens1.xyz)
 T1 = NodalField(zeros(size(fens1.xyz, 1), 1)) # displacement field
 
-# box1 = [0.0,0.0,0.0,0.0]
-# dbc_nodes1 = selectnode(fens1; box=box1, inflate=1e-8)
-# for i in dbc_nodes1
-#     setebc!(T1, [i], 1, 0.0)
-# end
+box1 = [0.0,0.0,0.0,0.0]
+dbc_nodes1 = selectnode(fens1; box=box1, inflate=1e-8)
+for i in dbc_nodes1
+    setebc!(T1, [i], 1, -1.0)
+end
 
 applyebc!(T1)
 numberdofs!(T1)
@@ -62,17 +85,19 @@ F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
 #########################################################################################
 
 
+xs2 = collect(linearspace(0.5, 1.0, ceil(Int, N_elem2/2)))
+ys2 = gradedspace(0.0, 1.0, N_elem2, 0.5)
 width2 = 0.5
 height2 = 1.0
 if right_m == "t"
-    fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    # fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    fens2, fes2 = T3blockx(xs2, ys2)
     Rule2 = TriRule(1)
 else
-    fens2, fes2 = Q4block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    # fens2, fes2 = Q4block(width2, height2, floor(Int, N_elem2/2), N_elem2)
+    fens2, fes2 = Q4blockx(xs2, ys2)    
     Rule2 = GaussRule(2,2)
 end
-# shift the second mesh to the right by 1.0
-fens2.xyz[:, 1] .+= 0.5
 
 boundaryfes2 = meshboundary(fes2)
 edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2, box=[0.5,0.5, 0.0,height2], inflate=1e-8))
@@ -106,8 +131,12 @@ F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 
 ##########################################################################################
 
-xs_i = 0.5*ones(N_elem_i+1)
-ys_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
+# xs_i = 0.5*ones(N_elem_i)
+# ys_i = collect(linearspace(0.0, 1.0, N_elem_i))
+
+ys_i = ys1
+xs_i = 0.5*ones(length(ys_i))
+
 fens_i, fes_i = L2blockx2D(xs_i, ys_i)
 fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 0.5)
 
@@ -119,66 +148,74 @@ else
 end
 numberdofs!(u_i)
 femm_i = FEMMHeatDiff(IntegDomain(fes_i, GaussRule(1,2)), material)
-D1,Pi_N1,Pi_phi1,Mu_1 = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8, give_m=true)
-D2,Pi_N2,Pi_phi2 = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
+D1,_,_ = build_D_matrix(fens_i, fes_i, fens1, edge_fes1; lam_order=lam_order,tol=1e-8)
+D2,_,_ = build_D_matrix(fens_i, fes_i, fens2, edge_fes2; lam_order=lam_order,tol=1e-8)
 
-# D1 = D1[:, setdiff(1:count(fens1), dbc_nodes1)]
+D1 = D1[:, setdiff(1:count(fens1), dbc_nodes1)]
 D2 = D2[:, setdiff(1:count(fens2), dbc_nodes2)]
 
 A = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2))    D1';
      zeros(size(K2_ff,1), size(K1_ff,2))     K2_ff          -D2';
      D1               -D2               zeros(size(D1,1), size(D1,1))]
-# A = cholesky(A)
-# show(Matrix(A))
-B = vcat(F1_ff, F2_ff, zeros(size(D1,1)))
-X = A \ B
 
-scattersysvec!(T1, X[1:size(K1_ff,1)])
-scattersysvec!(T2, X[size(K1_ff,1)+1 : size(K1_ff,1)+size(K2_ff,1)])
-scattersysvec!(u_i, X[size(K1_ff,1)+size(K2_ff,1)+1 : end])
 
-sol(x,y) = x-1
-err1 = L2_err(femm1, geom1, T1, sol)
-err2 = L2_err(femm2, geom2, T2, sol)
+    D1s = sparse(D1)
+    D2s = sparse(D2)
 
-File1 = "patch_test_left.vtk"
-vtkexportmesh(
-    File1,
-    fens1, fes1,scalars = [("Temperature", T1.values), ("Err", err1.values)]
+
+
+    B = [D1s  -D2s]   # constraint operator
+
+    # reduced primal stiffness
+    K1s = sparse(K1_ff)
+    K2s = sparse(K2_ff)
+
+
+
+    K = blockdiag(K1s, K2s)
+
+
+    M_lg = mass(femm_i, geom_i, u_i)
+    K = blockdiag(K1s, K2s)
+
+
+
+
+M1 = mass(femm1, geom1, T1)
+M1_ff = matrix_blocked(M1, nfreedofs(T1), nfreedofs(T1))[:ff]
+M2 = mass(femm2, geom2, T2)
+M2_ff = matrix_blocked(M2, nfreedofs(T2), nfreedofs(T2))[:ff]
+M_sd = blockdiag(M1_ff, M2_ff) 
+LM = cholesky(Symmetric(Matrix(h*M_lg))).L
+LK = cholesky(Symmetric(Matrix(K + M_sd+ B'*B/h))).L
+C  = LM \ (Matrix(B) / LK')    
+C  = sqrt(h)*sqrt(Matrix(M_lg)) \ (Matrix(B) / sqrt(Matrix(K)))  # scaled constraint operator
+s = svdvals(C)                    # sorted descending
+tol = 1e-12 * maximum(s)
+spos = filter(x -> x > tol, s)
+beta = isempty(spos) ? 0.0 : minimum(spos)
+
+    println("beta_h = $beta")
+
+push!(betavals, beta)
+
+
+    push!(hvals, h)
+end
+
+# ============================================================
+# plot
+# ============================================================
+
+plot(
+    hvals, betavals,
+    xscale = :log10,
+    yscale = :log10,
+    marker = :circle,
+    xlabel = "h",
+    ylabel = "beta_h (discrete inf–sup constant)",
+    title  = "LBB verification (lam_order = 1, P1 mortar)",
+    grid   = true,
+    legend = false,
+    xflip = true
 )
-File2 = "patch_test_right.vtk"
-vtkexportmesh(
-    File2,
-    fens2, fes2,scalars = [("Temperature", T2.values), ("Err", err2.values)]
-)
-println(u_i.values)
-# A1 = [K1_ff          zeros(size(K1_ff,1), size(K2_ff,2)) ;
-#      zeros(size(K2_ff,1), size(K1_ff,2))     K2_ff   ]
-# A2 = [D1';
-#      -D2']
-# svals1,_,_ = svdsolve(D1, 2, which=:SR)
-# svals2,_,_ = svdsolve(D2, 2, which=:SR)
-# println("Min singular value of D1 matrix: ", svals1[1])
-# println("Min singular value of D2 matrix: ", svals2[1])
-# plot the values on the interface from both sides
-
-# ui_1 = T1.values[selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8)]
-# xi_1 = fens1.xyz[selectnode(fens1; box=[width1,width1, 0.0,height1], inflate=1e-8), :]
-# ui_2 = T2.values[selectnode(fens2; box=[0.5,0.5, 0.0,height2], inflate=1e-8)]
-# xi_2 = fens2.xyz[selectnode(fens2; box=[0.5,0.5, 0.0,height2], inflate=1e-8), :]
-
-# using Plots
-# using LaTeXStrings
-
-# default(fontfamily="Computer Modern", linewidth=2, framestyle=:box)
-# plot(xi_1[:, 2], ui_1, label="Left side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Temperature", title="Temperature along the interface", ylims=(-0.50000000001,-0.49999999999))
-# plot!(xi_2[:, 2], ui_2, label="Right side", marker=:square)
-# savefig("patch_test_interface.pdf")
-
-# u_i_actual1 = sol.(xi_1[:, 1], xi_1[:, 2])
-# u_i_actual2 = sol.(xi_2[:, 1], xi_2[:, 2])
-# err_i_1 = abs.(ui_1 .- u_i_actual1)
-# err_i_2 = abs.(ui_2 .- u_i_actual2)
-# plot(xi_1[:, 2], err_i_1, label="Left Side", marker=:circle, xlabel=L"Distance along $y$ on interface", ylabel="Error", title="Temperature Error along the interface", yscale=:log10)
-# plot!(xi_2[:, 2], err_i_2, label="Right Side", marker=:square)
-# savefig("patch_test_interface_error.pdf")

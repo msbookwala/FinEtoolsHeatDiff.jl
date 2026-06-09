@@ -6,11 +6,10 @@ using FinEtools.MeshExportModule.VTK: vtkexportmesh, T3, vtkexportvectors
 using LinearAlgebra
 using KrylovKit
 include("utilities.jl")
-mult=10
+mult=1
 N_elem1 = 2 * 2^mult
-N_elem2 = 3 * 2^mult
-# N_elem_i = min(N_elem1, N_elem2)
-N_elem_i = 3
+N_elem2 = 10 * 2^mult
+N_elem_i = min(N_elem1, N_elem2)
 left_m = "q"
 right_m = "t"
 skew = 0.
@@ -52,10 +51,16 @@ femm1 = FEMMHeatDiff(IntegDomain(fes1, Rule1), material)
 K1 = conductivity(femm1, geom1, T1)
 K1_ff = matrix_blocked(K1, nfreedofs(T1), nfreedofs(T1))[:ff]
 
-l1 = selectelem(fens1, meshboundary(fes1), box = [0.0,0.0, 0.0,height1], inflate=1e-8)
+l1 = selectelem(fens1, meshboundary(fes1), box = [0.0,0.5, 0.0,0.0], inflate=1e-8)
 el1femm = FEMMBase(IntegDomain(subset(meshboundary(fes1), l1), GaussRule(1,2)))
-fi1 = ForceIntensity(Float64[-1.0])
+fi1 = ForceIntensity(Float64[1.0])
+
+l2 = selectelem(fens1, meshboundary(fes1), box = [0.0,0.5, 1.0,1.0], inflate=1e-8)
+el2femm = FEMMBase(IntegDomain(subset(meshboundary(fes1), l2), GaussRule(1,2)))
+fi2 = ForceIntensity(Float64[-1.0])
+
 F1 = distribloads(el1femm, geom1, T1, fi1, 2)
+F1+= distribloads(el2femm, geom1, T1, fi2, 2)
 F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
 
 
@@ -63,7 +68,7 @@ F1_ff = vector_blocked(F1, nfreedofs(T1))[:f]
 
 
 width2 = 0.5
-height2 = 1.0
+height2 = 0.5
 if right_m == "t"
     fens2, fes2 = T3block(width2, height2, floor(Int, N_elem2/2), N_elem2)
     Rule2 = TriRule(1)
@@ -73,16 +78,17 @@ else
 end
 # shift the second mesh to the right by 1.0
 fens2.xyz[:, 1] .+= 0.5
+fens2.xyz[:, 2] .+= 0.2
 
 boundaryfes2 = meshboundary(fes2)
-edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2, box=[0.5,0.5, 0.0,height2], inflate=1e-8))
+edge_fes2 = subset(boundaryfes2, selectelem(fens2, boundaryfes2, box=[0.5,0.5, 0.0,1.0], inflate=1e-8))
 
 fens2.xyz[:, 1] .+= skew * (1.0 .-fens2.xyz[:, 1]).*(fens2.xyz[:, 2] .- 0.5)
 
 geom2 = NodalField(fens2.xyz)
 T2 = NodalField(zeros(size(fens2.xyz, 1), 1)) # displacement field
 
-box2 = [1.0,1.0,0.0,0.0]
+box2 = [1.0,1.0,0.2,0.2]
 dbc_nodes2 = selectnode(fens2; box=box2, inflate=1e-8)
 for i in dbc_nodes2
     setebc!(T2, [i], 1, 0.0)
@@ -97,17 +103,25 @@ K2_ff = matrix_blocked(K2, nfreedofs(T2), nfreedofs(T2))[:ff]
 F2 = zeros(size(K2, 1))
 F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 
-l2 = selectelem(fens2, meshboundary(fes2), box = [1.0,1.0, 0.0,height2], inflate=1e-8)
+l1 = selectelem(fens2, meshboundary(fes2), box = [0.5,1.0, 0.2,0.2], inflate=1e-8)
+el1femm = FEMMBase(IntegDomain(subset(meshboundary(fes2), l1), GaussRule(1,2)))
+fi1 = ForceIntensity(Float64[1.0])
+
+l2 = selectelem(fens2, meshboundary(fes2), box = [0.5,1.0, 0.7,0.7], inflate=1e-8)
 el2femm = FEMMBase(IntegDomain(subset(meshboundary(fes2), l2), GaussRule(1,2)))
-fi2 = ForceIntensity(Float64[1.0])
-F2 = distribloads(el2femm, geom2, T2, fi2, 2)
+fi2 = ForceIntensity(Float64[-1.0])
+
+F2 = distribloads(el1femm, geom2, T2, fi1, 2)
+F2+= distribloads(el2femm, geom2, T2, fi2, 2)
 F2_ff = vector_blocked(F2, nfreedofs(T2))[:f]
 
 
 ##########################################################################################
 
-xs_i = 0.5*ones(N_elem_i+1)
-ys_i = collect(linearspace(0.0, 1.0, N_elem_i+1))
+# xs_i = 0.5*ones(N_elem_i+1)
+ys_i = collect(linearspace(0.2, 0.7, N_elem_i+1))
+# ys_i = collect(linearspace(0.2, 0.7, N_elem2+1))
+xs_i = 0.5*ones(length(ys_i))
 fens_i, fes_i = L2blockx2D(xs_i, ys_i)
 fens_i.xyz[:, 1] .+= skew * fens_i.xyz[:, 1].*(fens_i.xyz[:, 2] .- 0.5)
 
@@ -137,16 +151,16 @@ scattersysvec!(T1, X[1:size(K1_ff,1)])
 scattersysvec!(T2, X[size(K1_ff,1)+1 : size(K1_ff,1)+size(K2_ff,1)])
 scattersysvec!(u_i, X[size(K1_ff,1)+size(K2_ff,1)+1 : end])
 
-sol(x,y) = x-1
+sol(x,y) = 0.2-y
 err1 = L2_err(femm1, geom1, T1, sol)
 err2 = L2_err(femm2, geom2, T2, sol)
 
-File1 = "patch_test_left.vtk"
+File1 = "mm_patch_test_left.vtk"
 vtkexportmesh(
     File1,
     fens1, fes1,scalars = [("Temperature", T1.values), ("Err", err1.values)]
 )
-File2 = "patch_test_right.vtk"
+File2 = "mm_patch_test_right.vtk"
 vtkexportmesh(
     File2,
     fens2, fes2,scalars = [("Temperature", T2.values), ("Err", err2.values)]
